@@ -3,7 +3,6 @@
 pub struct AppConfig {
     pub display_name: &'static str,
     pub bundle_id: &'static str,
-    pub dmg_name: &'static str,
     pub version: &'static str,
 }
 

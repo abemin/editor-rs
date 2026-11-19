@@ -308,26 +308,6 @@ pub fn titles(mtm: MainThreadMarker) -> Vec<String> {
         .collect()
 }
 
-/// Finds a menu item by action, for tests and validation.
-pub fn find_item(mtm: MainThreadMarker, action: MenuAction) -> Option<Retained<NSMenuItem>> {
-    fn search(menu: &NSMenu, action: MenuAction) -> Option<Retained<NSMenuItem>> {
-        for i in 0..menu.numberOfItems() {
-            let item = menu.itemAtIndex(i)?;
-            if item.action() == Some(sel!(menuAction:)) && item.tag() == action as isize {
-                return Some(item);
-            }
-            if let Some(sub) = item.submenu()
-                && let Some(found) = search(&sub, action)
-            {
-                return Some(found);
-            }
-        }
-        None
-    }
-    let bar = NSApplication::sharedApplication(mtm).mainMenu()?;
-    search(&bar, action)
-}
-
 /// Fills the Open Recent menu each time it opens.
 pub fn update_dynamic_menu(mtm: MainThreadMarker, menu: &NSMenu, target: &AnyObject) {
     let title = menu.title().to_string();

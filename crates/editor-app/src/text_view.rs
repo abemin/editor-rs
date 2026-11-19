@@ -10,7 +10,7 @@ use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_se
 use objc2_app_kit::{
     NSAttributedStringNSStringDrawing, NSBeep, NSBezierPath, NSDragOperation, NSDraggingInfo,
     NSEvent, NSEventModifierFlags, NSFont, NSFontAttributeName, NSFontWeightRegular,
-    NSForegroundColorAttributeName, NSPasteboardTypeFileURL, NSResponder, NSTextInputClient,
+    NSForegroundColorAttributeName, NSPasteboardTypeFileURL, NSTextInputClient,
     NSUnderlineStyleAttributeName, NSView,
 };
 use objc2_foundation::NSURL;
@@ -67,11 +67,14 @@ pub fn text_left(lines: usize, m: &Metrics) -> f64 {
 }
 
 /// Builds an attributed string with optional colored character ranges.
+/// A red, green, blue color.
+pub type Rgb = (f64, f64, f64);
+
 pub fn attributed(
     text: &str,
     font: &NSFont,
-    base: (f64, f64, f64),
-    colors: &[(std::ops::Range<usize>, (f64, f64, f64))],
+    base: Rgb,
+    colors: &[(std::ops::Range<usize>, Rgb)],
 ) -> Retained<NSMutableAttributedString> {
     let string = NSMutableAttributedString::from_nsstring(&NSString::from_str(text));
     let utf16_len = text.encode_utf16().count();

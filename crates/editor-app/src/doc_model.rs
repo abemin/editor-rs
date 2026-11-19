@@ -2,7 +2,7 @@
 
 use editor_core::{Buffer, Document, Eol};
 use editor_formats::fortiweb::Container;
-use editor_formats::{FileKind, LoadedFile, OpenMode, SourceIdentity, TextEncoding};
+use editor_formats::{LoadedFile, OpenMode, SourceIdentity, TextEncoding};
 use editor_syntax::Language;
 use std::path::{Path, PathBuf};
 
@@ -11,7 +11,6 @@ pub struct EditorDoc {
     pub path: Option<PathBuf>,
     pub encoding: TextEncoding,
     pub container: Option<Container>,
-    pub kind: FileKind,
     pub language: Language,
     pub read_only: Option<String>,
     pub source: Option<SourceIdentity>,
@@ -40,7 +39,6 @@ impl EditorDoc {
             path: None,
             encoding: TextEncoding::Utf8 { bom: false },
             container: None,
-            kind: FileKind::Text,
             language: Language::Plain,
             read_only: None,
             source: None,
@@ -73,7 +71,6 @@ impl EditorDoc {
             path: Some(path.to_path_buf()),
             encoding: file.encoding,
             container: file.container,
-            kind: file.kind,
             language,
             read_only,
             source: file.source,

@@ -58,15 +58,13 @@ fn forward_to_running_instance(mtm: MainThreadMarker) {
             .collect();
         if let (false, Some(app_url)) = (urls.is_empty(), other.bundleURL()) {
             let config = NSWorkspaceOpenConfiguration::configuration();
-            unsafe {
-                NSWorkspace::sharedWorkspace()
-                    .openURLs_withApplicationAtURL_configuration_completionHandler(
-                        &NSArray::from_retained_slice(&urls),
-                        &app_url,
-                        &config,
-                        None,
-                    );
-            }
+            NSWorkspace::sharedWorkspace()
+                .openURLs_withApplicationAtURL_configuration_completionHandler(
+                    &NSArray::from_retained_slice(&urls),
+                    &app_url,
+                    &config,
+                    None,
+                );
         }
         #[allow(deprecated)]
         other.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
@@ -151,9 +149,7 @@ fn restore_tab(mtm: MainThreadMarker, entry: RestoredTab) -> Option<Rc<Tab>> {
         None => EditorDoc::untitled(),
         Some(path) => match millis(path) {
             None => {
-                notice = Some(format!(
-                    "The original file is missing. Your unsaved text was kept; Save asks for a new location."
-                ));
+                notice = Some("The original file is missing. Your unsaved text was kept; Save asks for a new location.".to_string());
                 let mut doc = match &clone {
                     Some(clone) => load_doc(clone, path)?,
                     None => EditorDoc::untitled(),

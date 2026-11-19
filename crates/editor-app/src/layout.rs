@@ -3,7 +3,6 @@
 
 use crate::doc_model::EditorDoc;
 use editor_formats::fortiweb::PLACEHOLDER;
-use editor_syntax::Role;
 use std::ops::Range;
 
 pub const TAB_WIDTH: usize = 4;
@@ -14,8 +13,6 @@ pub struct DisplayLine {
     /// Display column of each source character, plus one entry for the line end.
     /// `None` when every character is one column wide.
     pub columns: Option<Vec<u32>>,
-    /// Colored ranges in display columns.
-    pub roles: Vec<(Range<usize>, Role)>,
     /// Columns that belong to locked labels.
     pub locked: Vec<Range<usize>>,
 }
@@ -72,7 +69,6 @@ pub fn display_line(doc: &EditorDoc, line: usize) -> DisplayLine {
         return DisplayLine {
             chars: text.chars().collect(),
             columns: None,
-            roles: Vec::new(),
             locked: Vec::new(),
         };
     }
@@ -108,7 +104,6 @@ pub fn display_line(doc: &EditorDoc, line: usize) -> DisplayLine {
     DisplayLine {
         chars,
         columns: Some(columns),
-        roles: Vec::new(),
         locked,
     }
 }

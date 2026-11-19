@@ -74,7 +74,7 @@ pub fn saved_font_size() -> f64 {
         return DEFAULT_FONT_SIZE;
     }
     let size = defaults().doubleForKey(&NSString::from_str(FONT_KEY));
-    if size >= MIN_FONT && size <= MAX_FONT {
+    if (MIN_FONT..=MAX_FONT).contains(&size) {
         size
     } else {
         DEFAULT_FONT_SIZE

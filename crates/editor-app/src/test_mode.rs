@@ -450,20 +450,18 @@ fn key(mtm: MainThreadMarker, step: &Value) -> Result<(), String> {
         }
     }
     let characters = NSString::from_str(&chars);
-    let event = unsafe {
-        NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
-            NSEventType::KeyDown,
-            NSPoint::new(0.0, 0.0),
-            flags,
-            0.0,
-            tab.window.windowNumber(),
-            None,
-            &characters,
-            &characters,
-            false,
-            code,
-        )
-    }
+    let event = NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+        NSEventType::KeyDown,
+        NSPoint::new(0.0, 0.0),
+        flags,
+        0.0,
+        tab.window.windowNumber(),
+        None,
+        &characters,
+        &characters,
+        false,
+        code,
+    )
     .ok_or("could not create key event")?;
     if flags.contains(NSEventModifierFlags::Command)
         && NSApplication::sharedApplication(mtm)

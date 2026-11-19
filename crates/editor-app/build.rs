@@ -15,10 +15,9 @@ fn main() {
             .to_string()
     };
     let code = format!(
-        "pub const APP: AppConfig = AppConfig {{ display_name: {:?}, bundle_id: {:?}, dmg_name: {:?}, version: {:?} }};\n",
+        "pub const APP: AppConfig = AppConfig {{ display_name: {:?}, bundle_id: {:?}, version: {:?} }};\n",
         get("display_name"),
         get("bundle_id"),
-        get("dmg_name"),
         get("version")
     );
     let out = Path::new(&std::env::var("OUT_DIR").unwrap()).join("config.rs");

@@ -11,7 +11,6 @@ use objc2_foundation::NSArray;
 type Rgb = (f64, f64, f64);
 
 pub struct Theme {
-    pub dark: bool,
     pub background: Rgb,
     pub text: Rgb,
     pub gutter_background: Rgb,
@@ -97,7 +96,6 @@ fn dark_roles(role: Role) -> Option<Rgb> {
 }
 
 pub static LIGHT: Theme = Theme {
-    dark: false,
     background: (1.0, 1.0, 1.0),
     text: (0.12, 0.12, 0.14),
     gutter_background: (0.965, 0.965, 0.97),
@@ -113,7 +111,6 @@ pub static LIGHT: Theme = Theme {
 };
 
 pub static DARK: Theme = Theme {
-    dark: true,
     background: (0.115, 0.12, 0.13),
     text: (0.87, 0.87, 0.89),
     gutter_background: (0.135, 0.14, 0.15),

@@ -10,3 +10,26 @@ name = "EditorRS"
 path = "src/main.rs"
 
 [dependencies]
+editor-core.workspace = true
+editor-formats.workspace = true
+editor-search.workspace = true
+editor-syntax.workspace = true
+ropey.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+libc.workspace = true
+objc2 = "0.6"
+block2 = "0.6"
+dispatch2 = "0.3"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-core-foundation = "0.3"
+objc2-core-graphics = "0.3"
+objc2-core-text = "0.3"
+objc2-uniform-type-identifiers = "0.3"
+
+[build-dependencies]
+toml = "0.9"
+
+[dev-dependencies]
+tempfile.workspace = true

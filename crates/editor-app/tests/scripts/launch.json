@@ -1,0 +1,9 @@
+{
+  "steps": [
+    { "type": "assert", "what": "window_count", "equals": 1 },
+    { "type": "assert", "what": "window_title", "equals": "Untitled" },
+    { "type": "assert", "what": "menu_titles", "equals": ["File", "Edit", "View", "Search", "Bookmarks", "Window", "Help"] },
+    { "type": "render", "name": "launch" },
+    { "type": "quit" }
+  ]
+}

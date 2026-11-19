@@ -3,9 +3,11 @@
 pub mod encoding;
 pub mod fortiweb;
 pub mod load;
+pub mod save;
 
 pub use encoding::{
     EncodingMismatch, OpenMode, TextEncoding, UnrepresentableChar, decode_bytes, dominant_eol,
     encode_text, reopen_with,
 };
 pub use load::{FileKind, LoadedFile, SourceIdentity, load_file};
+pub use save::{Chunk, SaveError, atomic_write};

@@ -6,3 +6,7 @@ license-file.workspace = true
 publish.workspace = true
 
 [dependencies]
+editor-core.workspace = true
+ropey.workspace = true
+regex.workspace = true
+fancy-regex.workspace = true

@@ -1,0 +1,60 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "one\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "before": [
+        {
+          "write": "a.txt",
+          "text": "changed elsewhere\n"
+        }
+      ],
+      "answers": [
+        "Keep Mine"
+      ],
+      "steps": [
+        {
+          "type": "assert",
+          "what": "last_prompt",
+          "contains": "changed"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "xone\n"
+        },
+        {
+          "type": "assert",
+          "what": "dirty",
+          "equals": true
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

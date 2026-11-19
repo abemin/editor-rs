@@ -30,6 +30,19 @@ thread_local! {
     static RUNNER: RefCell<Option<Runner>> = const { RefCell::new(None) };
 }
 
+/// Queues answers for questions asked while the app is still launching.
+pub fn preload_answers(script: &Path) {
+    let parsed: Value = serde_json::from_str(&std::fs::read_to_string(script).unwrap_or_default())
+        .unwrap_or(Value::Null);
+    for answer in parsed["answers"].as_array().cloned().unwrap_or_default() {
+        crate::prompts::queue_answer(answer.as_str().unwrap_or_default());
+    }
+}
+
+thread_local! {
+    static SECOND_EXIT: std::cell::Cell<Option<i32>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn start(mtm: MainThreadMarker, script: &Path) {
     let text = std::fs::read_to_string(script).unwrap_or_default();
     let parsed: Value = serde_json::from_str(&text).unwrap_or(json!({ "steps": [] }));
@@ -121,6 +134,39 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         "clipboard" => json!(crate::input::clipboard_text()),
         "bookmarks" => json!(current(mtm)?.doc.borrow().doc.bookmarked_lines()),
         "status" => json!(current(mtm)?.status.stringValue().to_string()),
+        "tab_texts" => json!(
+            crate::app::tabs()
+                .iter()
+                .map(|t| t.doc.borrow().doc.text())
+                .collect::<Vec<_>>()
+        ),
+        "tab_dirty" => json!(
+            crate::app::tabs()
+                .iter()
+                .map(|t| t.doc.borrow().doc.is_dirty())
+                .collect::<Vec<_>>()
+        ),
+        "tab_bookmarks" => json!(
+            crate::app::tabs()
+                .iter()
+                .map(|t| t.doc.borrow().doc.bookmarked_lines())
+                .collect::<Vec<_>>()
+        ),
+        "second_exit" => json!(SECOND_EXIT.with(|c| c.get())),
+        "session_file_count" => {
+            let root = args().session_dir.ok_or("no session folder")?;
+            json!(
+                std::fs::read_dir(root)
+                    .map(|d| d
+                        .filter_map(Result::ok)
+                        .filter(|e| {
+                            let name = e.file_name().to_string_lossy().into_owned();
+                            name != ".lock" && !name.ends_with(".tmp")
+                        })
+                        .count())
+                    .unwrap_or(0)
+            )
+        }
         "last_prompt" => json!(crate::prompts::last_prompt()),
         "line_text" => {
             let line = step["line"].as_u64().unwrap_or(0) as usize;
@@ -143,13 +189,16 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         ),
         "file_matches" => {
             let file = step["file"].as_str().unwrap_or_default().to_string();
-            let original = RUNNER
-                .with(|r| {
-                    r.borrow()
-                        .as_ref()
-                        .and_then(|r| r.generated.get(&file).cloned())
-                })
-                .ok_or("file was not generated")?;
+            let original = match step["sections"].as_array() {
+                Some(sections) => synthetic_backup(sections),
+                None => RUNNER
+                    .with(|r| {
+                        r.borrow()
+                            .as_ref()
+                            .and_then(|r| r.generated.get(&file).cloned())
+                    })
+                    .ok_or("file was not generated")?,
+            };
             let pair = step["replace"].as_array().ok_or("needs replace")?;
             let (from, to) = (
                 pair[0].as_str().unwrap_or_default().as_bytes(),
@@ -447,6 +496,31 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 let anchor = tab.view.ivars().drag.get().ok_or("drag without click")?;
                 crate::input::drag(&tab, anchor, offset, line, column);
             }
+        }
+        "toggle_bookmark" => crate::bookmark_actions::toggle_line(
+            &current(mtm)?,
+            step["line"].as_u64().unwrap_or(0) as usize,
+        ),
+        "spawn_second" => {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let mut child = std::process::Command::new(exe)
+                .arg("--session-dir")
+                .arg(args().session_dir.ok_or("no session folder")?)
+                .arg(work_path(step)?)
+                .spawn()
+                .map_err(|e| e.to_string())?;
+            let started = std::time::Instant::now();
+            let code = loop {
+                if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
+                    break status.code();
+                }
+                if started.elapsed().as_secs() > 10 {
+                    let _ = child.kill();
+                    break None;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            };
+            SECOND_EXIT.with(|c| c.set(code));
         }
         "answer" => crate::prompts::queue_answer(step["with"].as_str().unwrap_or_default()),
         "write_file" => std::fs::write(work_path(step)?, step["text"].as_str().unwrap_or_default())

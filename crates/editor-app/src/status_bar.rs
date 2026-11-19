@@ -63,6 +63,9 @@ pub fn text(doc: &EditorDoc, notice: Option<&str>) -> String {
     if let Some(reason) = &doc.read_only {
         parts.push(format!("read-only: {reason}"));
     }
+    if let Some(warning) = crate::session_driver::warning() {
+        parts.push(warning);
+    }
     if let Some(notice) = notice {
         parts.push(notice.to_string());
     }

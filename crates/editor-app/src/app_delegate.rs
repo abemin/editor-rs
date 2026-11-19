@@ -33,6 +33,9 @@ define_class!(
             let mtm = self.mtm();
             with_app(|a| a.window_delegate = Some(crate::window_delegate::WindowDelegate::new(mtm)));
             crate::menus::install(mtm, self);
+            if let Some(script) = crate::app::args().test_script {
+                crate::test_mode::preload_answers(&script);
+            }
             crate::launch::restore_or_start(mtm);
             let pending = with_app(|a| {
                 a.launched = true;

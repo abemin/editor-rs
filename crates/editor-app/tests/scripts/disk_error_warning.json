@@ -1,0 +1,30 @@
+{
+  "runs": [
+    {
+      "session_dir_readonly": true,
+      "steps": [
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 300
+        },
+        {
+          "type": "assert",
+          "what": "status",
+          "contains": "Auto-save is not working"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "x"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

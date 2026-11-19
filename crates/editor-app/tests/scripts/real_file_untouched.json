@@ -1,0 +1,40 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "one\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 1600
+        },
+        {
+          "type": "assert",
+          "what": "file_text",
+          "file": "a.txt",
+          "equals": "one\n"
+        },
+        {
+          "type": "assert",
+          "what": "session_file_count",
+          "greater_than": 0
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

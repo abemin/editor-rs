@@ -1,0 +1,50 @@
+{
+  "runs": [
+    {
+      "kill_after_ms": 3000,
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "one\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "abc"
+        },
+        {
+          "type": "wait",
+          "ms": 1500
+        },
+        {
+          "type": "wait",
+          "ms": 20000
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "type": "assert",
+          "what": "tab_texts",
+          "equals": [
+            "abcone\n"
+          ]
+        },
+        {
+          "type": "assert",
+          "what": "dirty",
+          "equals": true
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

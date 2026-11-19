@@ -34,49 +34,95 @@ fn app_binary() -> &'static Path {
     })
 }
 
-/// Runs one script and returns the report. Panics with every failure listed.
+/// Runs one script and returns the last report. Panics with every failure listed.
+///
+/// A script is either `{ "steps": [...] }` or `{ "runs": [ { "steps": [...] }, ... ] }`.
+/// Each run launches the app again with the same session and work folders, so
+/// scripts can quit, crash or change files between launches.
 pub fn run_script(name: &str) -> serde_json::Value {
-    let script = Path::new(env!("CARGO_MANIFEST_DIR"))
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("tests/scripts")
         .join(format!("{name}.json"));
+    let script: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    let runs = match script.get("runs") {
+        Some(runs) => runs.as_array().unwrap().clone(),
+        None => vec![script.clone()],
+    };
     let work = tempfile::tempdir().unwrap();
-    let report = work.path().join("report.json");
     let artifacts = repo().join("target/ui-artifacts");
     std::fs::create_dir_all(&artifacts).unwrap();
-    let mut child = Command::new(app_binary())
-        .arg("--test-script")
-        .arg(&script)
-        .arg("--session-dir")
-        .arg(work.path().join("session"))
-        .arg("--report")
-        .arg(&report)
-        .arg("--artifacts")
-        .arg(&artifacts)
-        .arg("--work-dir")
-        .arg(work.path())
-        .spawn()
-        .unwrap();
-    let start = Instant::now();
-    loop {
-        if child.try_wait().unwrap().is_some() {
-            break;
+    let mut session = work.path().join("session");
+    let mut last = serde_json::Value::Null;
+    for (index, run) in runs.iter().enumerate() {
+        for action in run["before"].as_array().cloned().unwrap_or_default() {
+            if let Some(file) = action["delete"].as_str() {
+                std::fs::remove_file(work.path().join(file)).unwrap();
+            }
+            if let Some(file) = action["write"].as_str() {
+                std::fs::write(work.path().join(file), action["text"].as_str().unwrap()).unwrap();
+            }
         }
-        if start.elapsed() > TIMEOUT {
-            let _ = child.kill();
-            panic!("{name}: app did not finish within {TIMEOUT:?}");
+        if run["session_dir_readonly"].as_bool() == Some(true) {
+            let locked = work.path().join("locked");
+            std::fs::create_dir_all(&locked).unwrap();
+            std::fs::set_permissions(&locked, std::os::unix::fs::PermissionsExt::from_mode(0o500))
+                .unwrap();
+            session = locked.join("session");
         }
-        std::thread::sleep(Duration::from_millis(50));
+        let script_file = work.path().join(format!("run{index}.json"));
+        std::fs::write(&script_file, run.to_string()).unwrap();
+        let report = work.path().join(format!("report{index}.json"));
+        let mut child = Command::new(app_binary())
+            .arg("--test-script")
+            .arg(&script_file)
+            .arg("--session-dir")
+            .arg(&session)
+            .arg("--report")
+            .arg(&report)
+            .arg("--artifacts")
+            .arg(&artifacts)
+            .arg("--work-dir")
+            .arg(work.path())
+            .spawn()
+            .unwrap();
+        let start = Instant::now();
+        let kill_after = run["kill_after_ms"].as_u64().map(Duration::from_millis);
+        loop {
+            if child.try_wait().unwrap().is_some() {
+                break;
+            }
+            if kill_after.is_some_and(|k| start.elapsed() > k) {
+                child.kill().unwrap();
+                child.wait().unwrap();
+                break;
+            }
+            if start.elapsed() > TIMEOUT {
+                let _ = child.kill();
+                panic!("{name}: app did not finish within {TIMEOUT:?}");
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        if kill_after.is_some() {
+            continue;
+        }
+        let text = std::fs::read_to_string(&report)
+            .unwrap_or_else(|_| panic!("{name} run {index}: no report written"));
+        let value: serde_json::Value = serde_json::from_str(&text).unwrap();
+        let failures = value["failures"].as_array().cloned().unwrap_or_default();
+        assert!(
+            failures.is_empty(),
+            "{name} run {index} failed:\n{}",
+            serde_json::to_string_pretty(&failures).unwrap()
+        );
+        last = value;
     }
-    let text =
-        std::fs::read_to_string(&report).unwrap_or_else(|_| panic!("{name}: no report written"));
-    let value: serde_json::Value = serde_json::from_str(&text).unwrap();
-    let failures = value["failures"].as_array().cloned().unwrap_or_default();
-    assert!(
-        failures.is_empty(),
-        "{name} failed:\n{}",
-        serde_json::to_string_pretty(&failures).unwrap()
-    );
-    value
+    let locked = work.path().join("locked");
+    if locked.exists() {
+        let _ =
+            std::fs::set_permissions(&locked, std::os::unix::fs::PermissionsExt::from_mode(0o700));
+    }
+    last
 }
 
 macro_rules! scripts {
@@ -100,4 +146,13 @@ scripts!(
     close_dirty_tab,
     read_only_notice,
     unrepresentable,
+    restore_after_quit,
+    restore_after_kill,
+    restore_backup_source_deleted,
+    restore_source_changed,
+    restore_source_missing,
+    real_file_untouched,
+    clear_session_data,
+    disk_error_warning,
+    second_launch,
 );

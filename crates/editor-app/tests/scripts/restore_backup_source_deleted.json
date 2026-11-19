@@ -1,0 +1,81 @@
+{
+  "runs": [
+    {
+      "kill_after_ms": 3000,
+      "steps": [
+        {
+          "type": "generate_backup",
+          "file": "b.conf",
+          "sections": [
+            {
+              "text": "config system global\n  set hostname demo\nend\n"
+            },
+            {
+              "binary": 300
+            }
+          ]
+        },
+        {
+          "type": "open",
+          "file": "b.conf"
+        },
+        {
+          "type": "click",
+          "line": 17,
+          "column": 19
+        },
+        {
+          "type": "text",
+          "text": "-new"
+        },
+        {
+          "type": "wait",
+          "ms": 1500
+        },
+        {
+          "type": "wait",
+          "ms": 20000
+        }
+      ]
+    },
+    {
+      "before": [
+        {
+          "delete": "b.conf"
+        }
+      ],
+      "steps": [
+        {
+          "type": "assert",
+          "what": "notice",
+          "contains": "missing"
+        },
+        {
+          "type": "save_as",
+          "file": "c.conf"
+        },
+        {
+          "type": "assert",
+          "what": "file_matches",
+          "file": "c.conf",
+          "sections": [
+            {
+              "text": "config system global\n  set hostname demo\nend\n"
+            },
+            {
+              "binary": 300
+            }
+          ],
+          "replace": [
+            "hostname demo",
+            "hostname demo-new"
+          ],
+          "equals": true
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

@@ -17,6 +17,8 @@ pub struct EditorDoc {
     pub source: Option<SourceIdentity>,
     pub word_wrap: bool,
     pub max_columns: usize,
+    /// Name shown when there is no file path, such as a restored tab whose file is gone.
+    pub name_hint: Option<String>,
 }
 
 /// Longest line in characters, measured quickly on bytes.
@@ -52,6 +54,7 @@ impl EditorDoc {
             source: None,
             word_wrap: false,
             max_columns: 0,
+            name_hint: None,
         }
     }
 
@@ -84,14 +87,17 @@ impl EditorDoc {
             source: file.source,
             word_wrap: false,
             max_columns,
+            name_hint: None,
         }
     }
 
     pub fn title(&self) -> String {
-        self.path.as_ref().and_then(|p| p.file_name()).map_or_else(
-            || "Untitled".to_string(),
-            |n| n.to_string_lossy().into_owned(),
-        )
+        self.path
+            .as_ref()
+            .and_then(|p| p.file_name())
+            .map(|n| n.to_string_lossy().into_owned())
+            .or_else(|| self.name_hint.clone())
+            .unwrap_or_else(|| "Untitled".to_string())
     }
 
     /// Label shown in place of a protected section.

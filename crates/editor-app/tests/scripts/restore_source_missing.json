@@ -1,0 +1,56 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "one\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "before": [
+        {
+          "delete": "a.txt"
+        }
+      ],
+      "steps": [
+        {
+          "type": "assert",
+          "what": "notice",
+          "contains": "missing"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "xone\n"
+        },
+        {
+          "type": "assert",
+          "what": "window_title",
+          "equals": "a.txt"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

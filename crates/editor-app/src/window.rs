@@ -21,6 +21,11 @@ fn testing() -> bool {
 
 /// Creates a tab. It joins the frontmost window's tab group when there is one.
 pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
+    open_tab_with_id(mtm, doc, None)
+}
+
+/// Opens a tab, reusing a session id when restoring.
+pub fn open_tab_with_id(mtm: MainThreadMarker, doc: EditorDoc, id: Option<String>) -> Rc<Tab> {
     let title = doc.title();
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
@@ -42,7 +47,7 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
     window.setTabbingIdentifier(&NSString::from_str(TABBING_ID));
     window.setMinSize(NSSize::new(320.0, 200.0));
 
-    let id = with_app(|a| a.new_tab_id());
+    let id = id.unwrap_or_else(|| with_app(|a| a.new_tab_id()));
     let container = NSView::initWithFrame(NSView::alloc(mtm), window.contentLayoutRect());
     let bounds = container.bounds();
     let status = NSTextField::labelWithString(&NSString::from_str(""), mtm);
@@ -84,6 +89,9 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
         first_paint_ms: Cell::new(None),
         notice: RefCell::new(None),
         status,
+        journaled: Cell::new(false),
+        appended: Cell::new(0),
+        cloned: Cell::new(false),
     });
     let delegate = with_app(|a| a.window_delegate.clone());
     if let Some(delegate) = delegate {
@@ -136,4 +144,9 @@ pub fn current_tab(mtm: MainThreadMarker) -> Option<Rc<Tab>> {
         .into_iter()
         .rev()
         .find(|t| t.window.isVisible())
+}
+
+/// The front tab, for code that has no main-thread marker at hand.
+pub fn current_tab_without_marker() -> Option<Rc<Tab>> {
+    MainThreadMarker::new().and_then(current_tab)
 }

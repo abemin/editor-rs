@@ -1,0 +1,89 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "one\ntwo\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "toggle_bookmark",
+          "line": 1
+        },
+        {
+          "type": "menu",
+          "action": "NewTab"
+        },
+        {
+          "type": "text",
+          "text": "draft"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "type": "assert",
+          "what": "tab_count",
+          "equals": 2
+        },
+        {
+          "type": "assert",
+          "what": "tab_texts",
+          "equals": [
+            "xone\ntwo\n",
+            "draft"
+          ]
+        },
+        {
+          "type": "assert",
+          "what": "tab_dirty",
+          "equals": [
+            true,
+            true
+          ]
+        },
+        {
+          "type": "assert",
+          "what": "tab_bookmarks",
+          "equals": [
+            [
+              1
+            ],
+            []
+          ]
+        },
+        {
+          "type": "assert",
+          "what": "file_text",
+          "file": "a.txt",
+          "equals": "one\ntwo\n"
+        },
+        {
+          "type": "render",
+          "name": "restore_after_quit"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

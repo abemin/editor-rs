@@ -23,6 +23,11 @@ pub struct Tab {
     pub first_paint_ms: Cell<Option<f64>>,
     pub notice: RefCell<Option<String>>,
     pub status: Retained<NSTextField>,
+    /// Unsaved work is being journaled for this tab.
+    pub journaled: Cell<bool>,
+    pub appended: Cell<usize>,
+    /// A private copy of a backup's protected sections exists.
+    pub cloned: Cell<bool>,
 }
 
 pub struct App {

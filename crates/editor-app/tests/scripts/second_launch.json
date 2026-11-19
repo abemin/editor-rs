@@ -1,0 +1,38 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "text",
+          "text": "keep"
+        },
+        {
+          "type": "wait",
+          "ms": 300
+        },
+        {
+          "type": "spawn_second",
+          "file": "x.txt"
+        },
+        {
+          "type": "assert",
+          "what": "second_exit",
+          "equals": 0
+        },
+        {
+          "type": "assert",
+          "what": "tab_count",
+          "equals": 1
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "keep"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

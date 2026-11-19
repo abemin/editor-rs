@@ -1,0 +1,41 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 1600
+        },
+        {
+          "type": "assert",
+          "what": "session_file_count",
+          "greater_than": 0
+        },
+        {
+          "type": "answer",
+          "with": "Clear"
+        },
+        {
+          "type": "menu",
+          "action": "ClearSessionData"
+        },
+        {
+          "type": "wait",
+          "ms": 300
+        },
+        {
+          "type": "assert",
+          "what": "session_file_count",
+          "equals": 0
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

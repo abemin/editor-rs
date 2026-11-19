@@ -21,4 +21,5 @@ rm -rf "$app"; mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$dir/EditorRS" "$app/Contents/MacOS/EditorRS"
 plist=$(mktemp); "$dir/EditorRS" --print-info-plist > "$plist"; cp "$plist" "$app/Contents/Info.plist"; rm -f "$plist"
 cp assets/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+cp THIRD_PARTY_NOTICES.md LICENSE "$app/Contents/Resources/"
 codesign --force --sign - "$app" 2>/dev/null

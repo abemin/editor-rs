@@ -1,0 +1,17 @@
+# Third-party notices
+
+Editor RS includes the following open-source software. Each is used under the licence shown.
+
+{{#each licenses}}
+## {{name}}
+
+Used by:
+{{#each used_by}}
+- {{crate.name}} {{crate.version}}
+{{/each}}
+
+```
+{{text}}
+```
+
+{{/each}}

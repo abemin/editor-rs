@@ -5,6 +5,7 @@
 
 use crate::app::args;
 use block2::RcBlock;
+use objc2::rc::Retained;
 use objc2::{DefinedClass, MainThreadMarker, msg_send};
 use objc2_app_kit::{
     NSApplication, NSBitmapImageFileType, NSEvent, NSEventModifierFlags, NSEventType,
@@ -144,11 +145,7 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
             );
             json!(format!("{role:?}"))
         }
-        "visible_rows" => {
-            let tab = current(mtm)?;
-            let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
-            json!(tab.folds.borrow().visible_rows(lines))
-        }
+        "visible_rows" => json!(crate::rows::row_count(&*current(mtm)?)),
         "row_line" => json!(
             current(mtm)?
                 .folds
@@ -179,6 +176,35 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
             let tab = current(mtm)?;
             let doc = tab.doc.borrow();
             json!(doc.doc.line_col(doc.doc.selections().primary().head).0)
+        }
+        "font_size" => json!(crate::app::with_app(|a| a.font_size)),
+        "word_wrap" => json!(current(mtm)?.doc.borrow().word_wrap),
+        "settings_open" => json!(crate::settings::is_open()),
+        "ax_role" => {
+            let view = current(mtm)?.view.clone();
+            let role: Option<Retained<NSString>> = unsafe { msg_send![&*view, accessibilityRole] };
+            json!(role.map(|r| r.to_string()))
+        }
+        "ax_line" => {
+            let view = current(mtm)?.view.clone();
+            let line: isize = unsafe { msg_send![&*view, accessibilityInsertionPointLineNumber] };
+            json!(line)
+        }
+        "ax_selected_text" => {
+            let view = current(mtm)?.view.clone();
+            let text: Option<Retained<NSString>> =
+                unsafe { msg_send![&*view, accessibilitySelectedText] };
+            json!(text.map(|t| t.to_string()))
+        }
+        "ax_value" => {
+            let view = current(mtm)?.view.clone();
+            let value: Option<Retained<objc2::runtime::AnyObject>> =
+                unsafe { msg_send![&*view, accessibilityValue] };
+            json!(
+                value
+                    .and_then(|v| v.downcast::<NSString>().ok())
+                    .map(|s| s.to_string())
+            )
         }
         "find_status" => json!(crate::find_panel::status_text(&*current(mtm)?)),
         "search_running" => json!(crate::find_panel::is_running(&*current(mtm)?)),
@@ -562,7 +588,7 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 if let Some(status) = child.try_wait().map_err(|e| e.to_string())? {
                     break status.code();
                 }
-                if started.elapsed().as_secs() > 10 {
+                if started.elapsed().as_secs() > 30 {
                     let _ = child.kill();
                     break None;
                 }
@@ -591,6 +617,32 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 step["line"].as_u64().unwrap_or(0) as usize,
                 step["marker"].as_bool().unwrap_or(false),
             );
+        }
+        "reopen_encoding" => crate::view_actions::reopen_with_encoding(
+            mtm,
+            &current(mtm)?,
+            step["name"].as_str().unwrap_or_default(),
+        ),
+        "render_settings" => {
+            let window = crate::settings::window().ok_or("settings not open")?;
+            let view = window.contentView().ok_or("no view")?;
+            let bounds = view.bounds();
+            let rep = view
+                .bitmapImageRepForCachingDisplayInRect(bounds)
+                .ok_or("bitmap")?;
+            view.cacheDisplayInRect_toBitmapImageRep(bounds, &rep);
+            let data = unsafe {
+                rep.representationUsingType_properties(
+                    NSBitmapImageFileType::PNG,
+                    &NSDictionary::new(),
+                )
+            }
+            .ok_or("png")?;
+            let path = args().artifacts.ok_or("no artifacts")?.join(format!(
+                "{}.png",
+                step["name"].as_str().unwrap_or("settings")
+            ));
+            data.writeToFile_atomically(&NSString::from_str(&path.to_string_lossy()), true);
         }
         "find" => {
             let tab = current(mtm)?;

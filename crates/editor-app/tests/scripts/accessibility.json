@@ -1,0 +1,50 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "first\nsecond line\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "click",
+      "line": 1,
+      "column": 3
+    },
+    {
+      "type": "click",
+      "line": 1,
+      "column": 6,
+      "mods": [
+        "shift"
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "ax_role",
+      "equals": "AXTextArea"
+    },
+    {
+      "type": "assert",
+      "what": "ax_line",
+      "equals": 1
+    },
+    {
+      "type": "assert",
+      "what": "ax_selected_text",
+      "equals": "ond"
+    },
+    {
+      "type": "assert",
+      "what": "ax_value",
+      "contains": "second line"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

@@ -52,7 +52,7 @@ impl EditorDoc {
             language: Language::Plain,
             read_only: None,
             source: None,
-            word_wrap: false,
+            word_wrap: crate::settings::wrap_by_default(),
             max_columns: 0,
             name_hint: None,
         }
@@ -85,7 +85,7 @@ impl EditorDoc {
             language,
             read_only,
             source: file.source,
-            word_wrap: false,
+            word_wrap: crate::settings::wrap_by_default(),
             max_columns,
             name_hint: None,
         }

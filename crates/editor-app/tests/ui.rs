@@ -5,7 +5,33 @@ use std::process::Command;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-const TIMEOUT: Duration = Duration::from_secs(90);
+const TIMEOUT: Duration = Duration::from_secs(120);
+const MAX_RUNNING_APPS: usize = 4;
+
+/// Limits how many copies of the app run at once, so timing-sensitive
+/// scripts are not starved when the whole suite runs in parallel.
+struct Slot;
+
+static RUNNING: std::sync::Mutex<usize> = std::sync::Mutex::new(0);
+static FREED: std::sync::Condvar = std::sync::Condvar::new();
+
+impl Slot {
+    fn take() -> Slot {
+        let mut running = RUNNING.lock().unwrap();
+        while *running >= MAX_RUNNING_APPS {
+            running = FREED.wait(running).unwrap();
+        }
+        *running += 1;
+        Slot
+    }
+}
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        *RUNNING.lock().unwrap() -= 1;
+        FREED.notify_one();
+    }
+}
 
 fn repo() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -49,6 +75,8 @@ pub fn run_script(name: &str) -> serde_json::Value {
         Some(runs) => runs.as_array().unwrap().clone(),
         None => vec![script.clone()],
     };
+    app_binary();
+    let _slot = Slot::take();
     let work = tempfile::tempdir().unwrap();
     let artifacts = repo().join("target/ui-artifacts");
     std::fs::create_dir_all(&artifacts).unwrap();
@@ -170,4 +198,11 @@ scripts!(
     bookmark_gutter,
     bookmark_menu,
     backup_colors,
+    go_to_line,
+    indent,
+    font_size,
+    word_wrap,
+    reopen_encoding,
+    accessibility,
+    preferences,
 );

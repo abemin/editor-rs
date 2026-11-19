@@ -1,0 +1,49 @@
+{
+  "steps": [
+    {
+      "type": "write_bytes",
+      "file": "l.txt",
+      "hex": "636166e90a"
+    },
+    {
+      "type": "open",
+      "file": "l.txt"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "caf\u00e9\n"
+    },
+    {
+      "type": "reopen_encoding",
+      "name": "ISO-8859-2"
+    },
+    {
+      "type": "assert",
+      "what": "status",
+      "contains": "ISO-8859-2"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "caf\u00e9\n"
+    },
+    {
+      "type": "reopen_encoding",
+      "name": "UTF-8"
+    },
+    {
+      "type": "assert",
+      "what": "last_prompt",
+      "contains": "can't be shown as UTF-8"
+    },
+    {
+      "type": "assert",
+      "what": "status",
+      "contains": "ISO-8859-2"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

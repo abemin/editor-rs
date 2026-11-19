@@ -249,20 +249,23 @@ pub fn select_all(tab: &Rc<Tab>) {
 
 /// Character offset nearest to a point in the text view.
 pub fn offset_at_point(tab: &Tab, point: NSPoint) -> (usize, usize, usize) {
-    let doc = tab.doc.borrow();
     let m = metrics();
+    let row = (point.y / m.line_height).floor().max(0.0) as usize;
+    let rows = crate::rows::row_count(tab).max(1);
+    let (line, piece) = crate::rows::locate(tab, row.min(rows - 1));
+    let doc = tab.doc.borrow();
     let rope = doc.doc.buffer().rope();
     let lines = rope.len_lines();
-    let row = (point.y / m.line_height).floor().max(0.0) as usize;
-    let line = tab
-        .folds
-        .borrow()
-        .line_of_row(row)
-        .min(lines.saturating_sub(1));
-    let column = ((point.x - text_left(lines, &m)) / m.advance)
-        .round()
-        .max(0.0) as usize;
+    let line = line.min(lines.saturating_sub(1));
     let display = display_line(&doc, line);
+    let shown = crate::rows::piece_columns(tab, piece, display.width());
+    let mut column = shown.start
+        + ((point.x - text_left(lines, &m)) / m.advance)
+            .round()
+            .max(0.0) as usize;
+    if doc.word_wrap {
+        column = column.min(shown.end);
+    }
     let char_index = display.char_at_column(column);
     (rope.line_to_char(line) + char_index, line, column)
 }

@@ -1,0 +1,20 @@
+{
+  "steps": [
+    {
+      "type": "menu",
+      "action": "Preferences"
+    },
+    {
+      "type": "assert",
+      "what": "settings_open",
+      "equals": true
+    },
+    {
+      "type": "render_settings",
+      "name": "settings"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

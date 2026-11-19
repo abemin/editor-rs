@@ -1,0 +1,48 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "a\nb\nc\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "click",
+      "line": 0,
+      "column": 0
+    },
+    {
+      "type": "click",
+      "line": 1,
+      "column": 1,
+      "mods": [
+        "shift"
+      ]
+    },
+    {
+      "type": "menu",
+      "action": "Indent"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "    a\n    b\nc\n"
+    },
+    {
+      "type": "menu",
+      "action": "Outdent"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "a\nb\nc\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

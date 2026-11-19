@@ -97,6 +97,7 @@ pub fn open_tab_with_id(mtm: MainThreadMarker, doc: EditorDoc, id: Option<String
         search_cache: RefCell::new(None),
         highlight: RefCell::new(Default::default()),
         folds: RefCell::new(Default::default()),
+        wrap_cache: RefCell::new(None),
     });
     crate::highlight::reset(&tab);
     let delegate = with_app(|a| a.window_delegate.clone());

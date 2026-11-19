@@ -32,6 +32,7 @@ pub struct Tab {
     pub search_cancel: RefCell<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
     pub highlight: RefCell<crate::highlight::Highlighting>,
     pub folds: RefCell<crate::folds::Folds>,
+    pub wrap_cache: RefCell<Option<crate::rows::WrapCache>>,
     pub search_cache: RefCell<Option<(u64, std::sync::Arc<editor_search::SearchText>)>>,
 }
 
@@ -43,6 +44,7 @@ pub struct App {
     pub launched: bool,
     pub pending_urls: Vec<Retained<NSURL>>,
     pub find: crate::find_panel::FindState,
+    pub settings: Option<crate::settings::Settings>,
     next_id: u64,
 }
 
@@ -56,6 +58,7 @@ impl Default for App {
             launched: false,
             pending_urls: Vec::new(),
             find: Default::default(),
+            settings: None,
             next_id: 0,
         }
     }

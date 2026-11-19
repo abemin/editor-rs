@@ -1,0 +1,58 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word word \nshort\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "equals": 3
+    },
+    {
+      "type": "menu",
+      "action": "WordWrap"
+    },
+    {
+      "type": "assert",
+      "what": "word_wrap",
+      "equals": true
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "greater_than": 10
+    },
+    {
+      "type": "key",
+      "key": "down"
+    },
+    {
+      "type": "assert",
+      "what": "caret_line",
+      "equals": 1
+    },
+    {
+      "type": "render",
+      "name": "word_wrap"
+    },
+    {
+      "type": "menu",
+      "action": "WordWrap"
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "equals": 3
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

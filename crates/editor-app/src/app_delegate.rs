@@ -32,6 +32,8 @@ define_class!(
         fn did_finish_launching(&self, _notification: &NSNotification) {
             let mtm = self.mtm();
             with_app(|a| a.window_delegate = Some(crate::window_delegate::WindowDelegate::new(mtm)));
+            let size = crate::settings::saved_font_size();
+            with_app(|a| a.font_size = size);
             crate::menus::install(mtm, self);
             if let Some(script) = crate::app::args().test_script {
                 crate::test_mode::preload_answers(&script);

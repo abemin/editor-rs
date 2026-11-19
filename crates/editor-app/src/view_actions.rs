@@ -11,7 +11,35 @@ fn caret_line(tab: &Tab) -> usize {
 }
 
 pub fn perform(tab: &Rc<Tab>, action: MenuAction) {
+    let mtm = objc2::MainThreadMarker::new().expect("main thread");
     match action {
+        MenuAction::Indent => {
+            crate::input::edit(tab, editor_core::Document::indent);
+            return;
+        }
+        MenuAction::Outdent => {
+            crate::input::edit(tab, editor_core::Document::outdent);
+            return;
+        }
+        MenuAction::GoToLine => {
+            go_to_line(mtm, tab);
+            return;
+        }
+        MenuAction::BiggerText => return crate::settings::change_font_size(mtm, 1.0),
+        MenuAction::SmallerText => return crate::settings::change_font_size(mtm, -1.0),
+        MenuAction::ActualSize => {
+            return crate::settings::set_font_size(mtm, crate::text_view::DEFAULT_FONT_SIZE);
+        }
+        MenuAction::Preferences => return crate::settings::show(mtm),
+        MenuAction::About => {
+            objc2_app_kit::NSApplication::sharedApplication(mtm).orderFrontStandardAboutPanel(None);
+            return;
+        }
+        MenuAction::WordWrap => {
+            toggle_wrap(tab);
+            return;
+        }
+        MenuAction::FoldBlock if tab.doc.borrow().word_wrap => return,
         MenuAction::FoldBlock => {
             if let Some(block) = crate::folds::block_at(tab, caret_line(tab)) {
                 tab.folds.borrow_mut().fold(block);
@@ -146,4 +174,51 @@ pub fn reopen_with_encoding(mtm: objc2::MainThreadMarker, tab: &Rc<Tab>, name: &
     crate::highlight::reset(tab);
     update_frames(tab);
     crate::status_bar::refresh(tab);
+}
+
+pub fn toggle_wrap(tab: &Rc<Tab>) {
+    let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+    let enabling = !tab.doc.borrow().word_wrap;
+    if enabling && lines > crate::rows::WRAP_LINE_LIMIT {
+        crate::input::notice(
+            tab,
+            "Word wrap is not available for documents with more than 500,000 lines.",
+        );
+        return;
+    }
+    tab.doc.borrow_mut().word_wrap = enabling;
+    tab.folds.borrow_mut().clear();
+    crate::rows::invalidate(tab);
+    update_frames(tab);
+    crate::input::after_change(tab, false);
+    crate::session_driver::note_structure();
+}
+
+fn go_to_line(mtm: objc2::MainThreadMarker, tab: &Rc<Tab>) {
+    let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+    let Some(answer) = crate::prompts::ask_text(
+        mtm,
+        "Go to Line",
+        &format!("Enter a line number from 1 to {lines}."),
+    ) else {
+        return;
+    };
+    match answer.trim().parse::<usize>() {
+        Ok(number) if (1..=lines).contains(&number) => {
+            let offset = tab.doc.borrow().doc.offset_at(number - 1, 0);
+            tab.doc
+                .borrow_mut()
+                .doc
+                .set_selections(editor_core::SelectionSet::single(offset));
+            crate::input::after_change(tab, false);
+            crate::text_view::scroll_to(tab, number - 1, 0);
+        }
+        _ => crate::input::notice(
+            tab,
+            &format!(
+                "“{}” is not a line number between 1 and {lines}.",
+                answer.trim()
+            ),
+        ),
+    }
 }

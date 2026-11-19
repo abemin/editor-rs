@@ -1,0 +1,48 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "abc\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "assert",
+      "what": "font_size",
+      "equals": 13.0
+    },
+    {
+      "type": "menu",
+      "action": "BiggerText"
+    },
+    {
+      "type": "menu",
+      "action": "BiggerText"
+    },
+    {
+      "type": "assert",
+      "what": "font_size",
+      "equals": 15.0
+    },
+    {
+      "type": "render",
+      "name": "font_size"
+    },
+    {
+      "type": "menu",
+      "action": "ActualSize"
+    },
+    {
+      "type": "assert",
+      "what": "font_size",
+      "equals": 13.0
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

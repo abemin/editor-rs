@@ -56,3 +56,24 @@ pub fn ask(
 pub fn tell(mtm: MainThreadMarker, message: &str, info: &str) {
     ask(mtm, message, info, &["OK"], true);
 }
+
+/// Asks for a line of text. In test mode the next queued answer is the text.
+pub fn ask_text(mtm: MainThreadMarker, message: &str, info: &str) -> Option<String> {
+    LAST.with(|l| *l.borrow_mut() = Some(format!("{message} {info}")));
+    if crate::app::args().test_script.is_some() {
+        return ANSWERS.with(|a| a.borrow_mut().pop_front());
+    }
+    let alert = NSAlert::new(mtm);
+    alert.setMessageText(&NSString::from_str(message));
+    alert.setInformativeText(&NSString::from_str(info));
+    alert.addButtonWithTitle(&NSString::from_str("Go"));
+    alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+    let field = objc2_app_kit::NSTextField::textFieldWithString(&NSString::from_str(""), mtm);
+    field.setFrame(objc2_foundation::NSRect::new(
+        objc2_foundation::NSPoint::new(0.0, 0.0),
+        objc2_foundation::NSSize::new(200.0, 24.0),
+    ));
+    alert.setAccessoryView(Some(&field));
+    alert.window().setInitialFirstResponder(Some(&field));
+    (alert.runModal() == 1000).then(|| field.stringValue().to_string())
+}

@@ -163,8 +163,9 @@ impl Document {
         kind: Kind,
     ) -> Result<(), EditError> {
         let before = self.snapshot();
+        let bookmarks = crate::bookmarks::remapped(self, &batch);
         let applied = self.buffer.apply(&batch)?;
-        self.remap_bookmarks(&batch);
+        self.bookmarks = bookmarks;
         self.selections = after;
         self.goal_columns = None;
         let after = self.snapshot();
@@ -564,7 +565,9 @@ impl Document {
             self.change_log.push(step.inverse.clone());
         }
         self.selections = group.selections_before.clone();
-        self.bookmarks = group.bookmarks_before.clone();
+        if group.is_whole_command() {
+            self.bookmarks = group.bookmarks_before.clone();
+        }
         self.goal_columns = None;
         self.history.push_redo(group);
         true
@@ -584,7 +587,9 @@ impl Document {
             self.change_log.push(step.forward.clone());
         }
         self.selections = group.selections_after.clone();
-        self.bookmarks = group.bookmarks_after.clone();
+        if group.is_whole_command() {
+            self.bookmarks = group.bookmarks_after.clone();
+        }
         self.goal_columns = None;
         self.history.push_undo(group);
         true
@@ -595,37 +600,15 @@ impl Document {
         std::mem::take(&mut self.change_log)
     }
 
-    fn remap_bookmarks(&mut self, batch: &EditBatch) {
-        crate::bookmarks::remap(self, batch);
-    }
-
-    /// Runs a whole-line edit as one undo step, then sets the bookmarks.
-    pub(crate) fn commit_lines(
-        &mut self,
-        batch: EditBatch,
-        bookmarks: Vec<usize>,
-    ) -> Result<(), EditError> {
-        if batch.0.is_empty() {
-            self.bookmarks = bookmarks;
+    /// Runs a whole-line command as one undo step.
+    pub(crate) fn commit_lines(&mut self, batch: EditBatch) -> Result<(), EditError> {
+        let Some(first) = batch.0.first() else {
             return Ok(());
-        }
-        let caret = batch.0[0].range.start;
-        let before = self.snapshot();
-        let applied = self.buffer.apply(&batch)?;
-        self.bookmarks = bookmarks;
-        self.selections = SelectionSet::single(caret.min(self.len()));
-        self.goal_columns = None;
-        let after = self.snapshot();
-        self.history.record(
-            Step {
-                forward: batch.clone(),
-                inverse: applied.inverse,
-            },
-            before,
-            after,
-            Kind::Other,
-        );
-        self.change_log.push(batch);
+        };
+        let caret = first.range.start;
+        self.commit(batch, SelectionSet::single(caret), Kind::Other)?;
+        let len = self.len();
+        self.selections = SelectionSet::single(caret.min(len));
         Ok(())
     }
 }

@@ -31,6 +31,13 @@ pub(crate) struct Group {
     open: bool,
 }
 
+impl Group {
+    /// Line commands restore exact bookmarks; typing lets them follow the text.
+    pub fn is_whole_command(&self) -> bool {
+        self.kind == Kind::Other
+    }
+}
+
 pub(crate) struct Snapshot {
     pub selections: SelectionSet,
     pub bookmarks: Vec<usize>,

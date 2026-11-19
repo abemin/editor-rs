@@ -1,0 +1,54 @@
+{
+  "steps": [
+    {
+      "type": "generate_backup",
+      "file": "b.conf",
+      "sections": [
+        {
+          "text": "config system global\n  set hostname demo\nend\n"
+        },
+        {
+          "binary": 300
+        },
+        {
+          "text": "config late\nend\n"
+        }
+      ]
+    },
+    {
+      "type": "open",
+      "file": "b.conf"
+    },
+    {
+      "type": "click",
+      "line": 17,
+      "column": 19
+    },
+    {
+      "type": "text",
+      "text": "-new"
+    },
+    {
+      "type": "menu",
+      "action": "Save"
+    },
+    {
+      "type": "assert",
+      "what": "dirty",
+      "equals": false
+    },
+    {
+      "type": "assert",
+      "what": "file_matches",
+      "file": "b.conf",
+      "replace": [
+        "hostname demo",
+        "hostname demo-new"
+      ],
+      "equals": true
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

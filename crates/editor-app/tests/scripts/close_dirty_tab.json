@@ -1,0 +1,69 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "one\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "menu",
+      "action": "NewTab"
+    },
+    {
+      "type": "text",
+      "text": "draft"
+    },
+    {
+      "type": "answer",
+      "with": "Cancel"
+    },
+    {
+      "type": "menu",
+      "action": "CloseTab"
+    },
+    {
+      "type": "assert",
+      "what": "tab_count",
+      "equals": 2
+    },
+    {
+      "type": "answer",
+      "with": "Don't Save"
+    },
+    {
+      "type": "menu",
+      "action": "CloseTab"
+    },
+    {
+      "type": "assert",
+      "what": "tab_count",
+      "equals": 1
+    },
+    {
+      "type": "text",
+      "text": "x"
+    },
+    {
+      "type": "answer",
+      "with": "Save"
+    },
+    {
+      "type": "menu",
+      "action": "CloseTab"
+    },
+    {
+      "type": "assert",
+      "what": "file_text",
+      "file": "a.txt",
+      "equals": "xone\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

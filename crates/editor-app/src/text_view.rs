@@ -5,13 +5,15 @@ use crate::layout::{DisplayLine, display_line};
 use crate::theme::{self, Theme, color};
 use editor_syntax::Role;
 use objc2::rc::Retained;
-use objc2::runtime::{AnyObject, NSObjectProtocol, Sel};
+use objc2::runtime::{AnyObject, NSObjectProtocol, ProtocolObject, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
 use objc2_app_kit::{
-    NSAttributedStringNSStringDrawing, NSBeep, NSBezierPath, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontAttributeName, NSFontWeightRegular, NSForegroundColorAttributeName, NSResponder,
-    NSTextInputClient, NSUnderlineStyleAttributeName, NSView,
+    NSAttributedStringNSStringDrawing, NSBeep, NSBezierPath, NSDragOperation, NSDraggingInfo,
+    NSEvent, NSEventModifierFlags, NSFont, NSFontAttributeName, NSFontWeightRegular,
+    NSForegroundColorAttributeName, NSPasteboardTypeFileURL, NSResponder, NSTextInputClient,
+    NSUnderlineStyleAttributeName, NSView,
 };
+use objc2_foundation::NSURL;
 use objc2_foundation::{
     NSArray, NSAttributedString, NSAttributedStringKey, NSMutableAttributedString, NSNumber,
     NSPoint, NSRange, NSRect, NSSize, NSString, NSUInteger,
@@ -263,6 +265,23 @@ define_class!(
             self.ivars().drag.set(None);
         }
 
+        #[unsafe(method(draggingEntered:))]
+        fn dragging_entered(&self, _sender: &ProtocolObject<dyn NSDraggingInfo>) -> NSDragOperation {
+            NSDragOperation::Copy
+        }
+
+        #[unsafe(method(performDragOperation:))]
+        fn perform_drag(&self, sender: &ProtocolObject<dyn NSDraggingInfo>) -> bool {
+            let pasteboard = sender.draggingPasteboard();
+            let classes = NSArray::from_slice(&[<NSURL as objc2::ClassType>::class()]);
+            let urls = unsafe { pasteboard.readObjectsForClasses_options(&classes, None) };
+            let urls: Vec<Retained<NSURL>> = urls
+                .map(|items| items.iter().filter_map(|o| o.downcast::<NSURL>().ok()).collect())
+                .unwrap_or_default();
+            crate::document_controller::open_urls(self.mtm(), &urls);
+            !urls.is_empty()
+        }
+
         #[unsafe(method(copy:))]
         fn copy_action(&self, _sender: Option<&AnyObject>) {
             if let Some(tab) = self.tab() {
@@ -366,9 +385,11 @@ impl TextView {
             marked: RefCell::new(None),
             drag: Cell::new(None),
         });
-        unsafe {
+        let view: Retained<Self> = unsafe {
             msg_send![super(this), initWithFrame: NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(800.0, 600.0))]
-        }
+        };
+        view.registerForDraggedTypes(&NSArray::from_slice(&[unsafe { NSPasteboardTypeFileURL }]));
+        view
     }
 }
 

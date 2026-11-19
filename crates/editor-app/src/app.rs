@@ -7,7 +7,8 @@ use crate::Args;
 use crate::doc_model::EditorDoc;
 use crate::text_view::{DEFAULT_FONT_SIZE, TextView};
 use objc2::rc::Retained;
-use objc2_app_kit::{NSScrollView, NSWindow};
+use objc2_app_kit::{NSScrollView, NSTextField, NSWindow};
+use objc2_foundation::NSURL;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Instant;
@@ -21,12 +22,16 @@ pub struct Tab {
     pub opened_at: Cell<Option<Instant>>,
     pub first_paint_ms: Cell<Option<f64>>,
     pub notice: RefCell<Option<String>>,
+    pub status: Retained<NSTextField>,
 }
 
 pub struct App {
     pub args: Args,
     pub tabs: Vec<Rc<Tab>>,
     pub font_size: f64,
+    pub window_delegate: Option<Retained<crate::window_delegate::WindowDelegate>>,
+    pub launched: bool,
+    pub pending_urls: Vec<Retained<NSURL>>,
     next_id: u64,
 }
 
@@ -36,6 +41,9 @@ impl Default for App {
             args: Args::default(),
             tabs: Vec::new(),
             font_size: DEFAULT_FONT_SIZE,
+            window_delegate: None,
+            launched: false,
+            pending_urls: Vec::new(),
             next_id: 0,
         }
     }
@@ -43,10 +51,6 @@ impl Default for App {
 
 thread_local! {
     static APP: RefCell<App> = RefCell::new(App::default());
-}
-
-pub fn tab_by_id(id: &str) -> Option<Rc<Tab>> {
-    with_app(|a| a.tabs.iter().find(|t| t.id == id).cloned())
 }
 
 /// Runs `f` with the app state. Never call AppKit inside `f`.
@@ -66,6 +70,10 @@ impl App {
             .find(|t| std::ptr::eq(&*t.window, window))
             .cloned()
     }
+}
+
+pub fn tab_by_id(id: &str) -> Option<Rc<Tab>> {
+    with_app(|a| a.tabs.iter().find(|t| t.id == id).cloned())
 }
 
 pub fn tabs() -> Vec<Rc<Tab>> {

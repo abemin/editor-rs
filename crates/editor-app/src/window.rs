@@ -5,14 +5,15 @@ use crate::doc_model::EditorDoc;
 use crate::text_view::{TextView, update_frames};
 use objc2::{MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSBackingStoreType, NSScrollView, NSView, NSWindow,
-    NSWindowOrderingMode, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSBackingStoreType, NSFont, NSScrollView,
+    NSTextField, NSView, NSWindow, NSWindowOrderingMode, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 const TABBING_ID: &str = "document";
+const STATUS_HEIGHT: f64 = 22.0;
 
 fn testing() -> bool {
     crate::app::args().test_script.is_some()
@@ -43,7 +44,24 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
 
     let id = with_app(|a| a.new_tab_id());
     let container = NSView::initWithFrame(NSView::alloc(mtm), window.contentLayoutRect());
-    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), container.bounds());
+    let bounds = container.bounds();
+    let status = NSTextField::labelWithString(&NSString::from_str(""), mtm);
+    status.setFrame(NSRect::new(
+        NSPoint::new(10.0, 3.0),
+        NSSize::new(bounds.size.width - 20.0, STATUS_HEIGHT - 6.0),
+    ));
+    status.setFont(Some(&NSFont::systemFontOfSize(11.0)));
+    status.setTextColor(Some(&objc2_app_kit::NSColor::secondaryLabelColor()));
+    status.setLineBreakMode(objc2_app_kit::NSLineBreakMode::ByTruncatingTail);
+    status.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewMaxYMargin,
+    );
+    container.addSubview(&status);
+    let scroll_frame = NSRect::new(
+        NSPoint::new(0.0, STATUS_HEIGHT),
+        NSSize::new(bounds.size.width, bounds.size.height - STATUS_HEIGHT),
+    );
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), scroll_frame);
     scroll.setHasVerticalScroller(true);
     scroll.setHasHorizontalScroller(true);
     scroll.setAutohidesScrollers(true);
@@ -65,7 +83,12 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
         opened_at: Cell::new(None),
         first_paint_ms: Cell::new(None),
         notice: RefCell::new(None),
+        status,
     });
+    let delegate = with_app(|a| a.window_delegate.clone());
+    if let Some(delegate) = delegate {
+        window.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));
+    }
     let front = NSApplication::sharedApplication(mtm).keyWindow();
     with_app(|a| a.tabs.push(tab.clone()));
     update_frames(&tab);
@@ -83,6 +106,7 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
     }
     window.makeKeyAndOrderFront(None);
     window.makeFirstResponder(Some(&view));
+    crate::status_bar::refresh(&tab);
     tab
 }
 

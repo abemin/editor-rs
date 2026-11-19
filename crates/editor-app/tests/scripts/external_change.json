@@ -1,0 +1,43 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "one\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "wait",
+      "ms": 1100
+    },
+    {
+      "type": "write_file",
+      "file": "a.txt",
+      "text": "two\n"
+    },
+    {
+      "type": "answer",
+      "with": "Reload"
+    },
+    {
+      "type": "check_external"
+    },
+    {
+      "type": "assert",
+      "what": "last_prompt",
+      "contains": "changed"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "two\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

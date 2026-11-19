@@ -24,6 +24,7 @@ pub fn edit(tab: &Rc<Tab>, f: impl FnOnce(&mut Document) -> Result<(), EditError
         let mut doc = tab.doc.borrow_mut();
         match doc.read_only.clone() {
             Some(reason) => Err((EditError::ReadOnly, reason)),
+            None if on_locked_line(&doc.doc) => Err((EditError::TouchesLocked, String::new())),
             None => f(&mut doc.doc).map_err(|e| (e, String::new())),
         }
     };
@@ -52,6 +53,21 @@ pub fn edit(tab: &Rc<Tab>, f: impl FnOnce(&mut Document) -> Result<(), EditError
             false
         }
     }
+}
+
+/// True when a cursor or selection is on a line that holds a protected section.
+/// Those lines are framing around locked data, so they cannot be typed into.
+fn on_locked_line(doc: &Document) -> bool {
+    let locked = doc.buffer().locked();
+    if locked.is_empty() {
+        return false;
+    }
+    let locked_lines: Vec<usize> = locked.iter().map(|&a| doc.line_col(a).0).collect();
+    doc.selections().ranges().iter().any(|s| {
+        let (first, _) = doc.line_col(s.min());
+        let (last, _) = doc.line_col(s.max());
+        locked_lines.iter().any(|&l| first <= l && l <= last)
+    })
 }
 
 /// Call after the text or selection changed.

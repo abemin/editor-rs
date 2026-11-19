@@ -1,0 +1,44 @@
+{
+  "steps": [
+    {
+      "type": "write_bytes",
+      "file": "w.txt",
+      "hex": "6361 66e9 0a"
+    },
+    {
+      "type": "open",
+      "file": "w.txt"
+    },
+    {
+      "type": "assert",
+      "what": "status",
+      "contains": "Windows-1252"
+    },
+    {
+      "type": "text",
+      "text": "\ud83d\ude00"
+    },
+    {
+      "type": "answer",
+      "with": "Convert to UTF-8"
+    },
+    {
+      "type": "menu",
+      "action": "Save"
+    },
+    {
+      "type": "assert",
+      "what": "last_prompt",
+      "contains": "Windows-1252"
+    },
+    {
+      "type": "assert",
+      "what": "file_hex",
+      "file": "w.txt",
+      "equals": "f09f9880636166c3a90a"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

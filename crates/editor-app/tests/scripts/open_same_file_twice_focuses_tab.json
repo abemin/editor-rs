@@ -1,0 +1,36 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "hello\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "assert",
+      "what": "tab_count",
+      "equals": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "assert",
+      "what": "tab_count",
+      "equals": 1
+    },
+    {
+      "type": "assert",
+      "what": "window_title",
+      "equals": "a.txt"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

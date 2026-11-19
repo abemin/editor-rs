@@ -1,0 +1,30 @@
+{
+  "steps": [
+    {
+      "type": "write_file",
+      "file": "bin.dat",
+      "text": "ab\u0000cd"
+    },
+    {
+      "type": "open",
+      "file": "bin.dat"
+    },
+    {
+      "type": "assert",
+      "what": "status",
+      "contains": "read-only"
+    },
+    {
+      "type": "text",
+      "text": "x"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "ab\u0000cd"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

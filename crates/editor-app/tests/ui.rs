@@ -91,5 +91,13 @@ scripts!(
     multi_cursor,
     ime,
     clipboard,
-    locked_paste
+    locked_paste,
+    open_same_file_twice_focuses_tab,
+    backup_presentation,
+    backup_save,
+    backup_invalid,
+    external_change,
+    close_dirty_tab,
+    read_only_notice,
+    unrepresentable,
 );

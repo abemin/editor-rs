@@ -93,6 +93,11 @@ fn build_item(mtm: MainThreadMarker, item: &Item, target: &AnyObject) -> Retaine
         Item::Submenu(title, items) => {
             let menu_item = make(mtm, title, None, "", NONE);
             let submenu = NSMenu::initWithTitle(NSMenu::alloc(mtm), &NSString::from_str(title));
+            if matches!(*title, "Open Recent" | "Language" | "Reopen with Encoding")
+                && let Some(delegate) = target.downcast_ref::<crate::app_delegate::AppDelegate>()
+            {
+                submenu.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(delegate)));
+            }
             for child in items {
                 submenu.addItem(&build_item(mtm, child, target));
             }
@@ -321,4 +326,35 @@ pub fn find_item(mtm: MainThreadMarker, action: MenuAction) -> Option<Retained<N
     }
     let bar = NSApplication::sharedApplication(mtm).mainMenu()?;
     search(&bar, action)
+}
+
+/// Fills the Open Recent menu each time it opens.
+pub fn update_dynamic_menu(mtm: MainThreadMarker, menu: &NSMenu, target: &AnyObject) {
+    if menu.title().to_string() != "Open Recent" {
+        return;
+    }
+    menu.removeAllItems();
+    let recent = crate::document_controller::recent_files();
+    for path in &recent {
+        let title = path.file_name().map_or_else(
+            || path.to_string_lossy().into_owned(),
+            |n| n.to_string_lossy().into_owned(),
+        );
+        let item = make(mtm, &title, Some(sel!(menuAction:)), "", NONE);
+        unsafe {
+            item.setTarget(Some(target));
+            item.setRepresentedObject(Some(&NSString::from_str(&path.to_string_lossy())));
+        }
+        item.setTag(MenuAction::OpenRecent as isize);
+        item.setToolTip(Some(&NSString::from_str(&path.to_string_lossy())));
+        menu.addItem(&item);
+    }
+    if !recent.is_empty() {
+        menu.addItem(&NSMenuItem::separatorItem(mtm));
+    }
+    menu.addItem(&build_item(
+        mtm,
+        &Item::Action("Clear Menu", MenuAction::ClearRecent, "", NONE),
+        target,
+    ));
 }

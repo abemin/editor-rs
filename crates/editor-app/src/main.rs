@@ -3,20 +3,24 @@
 mod app;
 mod app_delegate;
 mod bookmark_actions;
+mod commands;
 mod config;
 mod doc_model;
 mod document_controller;
 mod find_panel;
 mod highlight;
 mod input;
+mod launch;
 mod layout;
 mod menus;
+mod prompts;
 mod session_driver;
 mod status_bar;
 mod test_mode;
 mod text_view;
 mod theme;
 mod window;
+mod window_delegate;
 
 use objc2::MainThreadMarker;
 use objc2::runtime::ProtocolObject;

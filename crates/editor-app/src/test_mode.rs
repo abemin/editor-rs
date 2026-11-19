@@ -120,6 +120,50 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         "notice" => json!(*current(mtm)?.notice.borrow()),
         "clipboard" => json!(crate::input::clipboard_text()),
         "bookmarks" => json!(current(mtm)?.doc.borrow().doc.bookmarked_lines()),
+        "status" => json!(current(mtm)?.status.stringValue().to_string()),
+        "last_prompt" => json!(crate::prompts::last_prompt()),
+        "line_text" => {
+            let line = step["line"].as_u64().unwrap_or(0) as usize;
+            let tab = current(mtm)?;
+            let doc = tab.doc.borrow();
+            json!(
+                crate::layout::display_line(&doc, line)
+                    .chars
+                    .iter()
+                    .collect::<String>()
+            )
+        }
+        "file_text" => json!(std::fs::read_to_string(work_path(step)?).map_err(|e| e.to_string())?),
+        "file_hex" => json!(
+            std::fs::read(work_path(step)?)
+                .map_err(|e| e.to_string())?
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect::<String>()
+        ),
+        "file_matches" => {
+            let file = step["file"].as_str().unwrap_or_default().to_string();
+            let original = RUNNER
+                .with(|r| {
+                    r.borrow()
+                        .as_ref()
+                        .and_then(|r| r.generated.get(&file).cloned())
+                })
+                .ok_or("file was not generated")?;
+            let pair = step["replace"].as_array().ok_or("needs replace")?;
+            let (from, to) = (
+                pair[0].as_str().unwrap_or_default().as_bytes(),
+                pair[1].as_str().unwrap_or_default().as_bytes(),
+            );
+            let at = original
+                .windows(from.len())
+                .position(|w| w == from)
+                .ok_or("pattern not in generated file")?;
+            let mut expected = original[..at].to_vec();
+            expected.extend_from_slice(to);
+            expected.extend_from_slice(&original[at + from.len()..]);
+            json!(std::fs::read(work_path(step)?).ok() == Some(expected))
+        }
         "file_unchanged" => {
             let path = work_path(step)?;
             let file = step["file"].as_str().unwrap_or_default().to_string();
@@ -402,6 +446,28 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
             } else {
                 let anchor = tab.view.ivars().drag.get().ok_or("drag without click")?;
                 crate::input::drag(&tab, anchor, offset, line, column);
+            }
+        }
+        "answer" => crate::prompts::queue_answer(step["with"].as_str().unwrap_or_default()),
+        "write_file" => std::fs::write(work_path(step)?, step["text"].as_str().unwrap_or_default())
+            .map_err(|e| e.to_string())?,
+        "write_bytes" => {
+            let hex: String = step["hex"]
+                .as_str()
+                .unwrap_or_default()
+                .split_whitespace()
+                .collect();
+            let bytes: Vec<u8> = (0..hex.len())
+                .step_by(2)
+                .filter_map(|i| u8::from_str_radix(&hex[i..i + 2], 16).ok())
+                .collect();
+            std::fs::write(work_path(step)?, bytes).map_err(|e| e.to_string())?;
+        }
+        "check_external" => crate::document_controller::check_all_external_changes(mtm),
+        "save_as" => {
+            let tab = current(mtm)?;
+            if !crate::document_controller::save_to(mtm, &tab, &work_path(step)?) {
+                return Err("save failed".into());
             }
         }
         "set_clipboard" => {

@@ -1,12 +1,13 @@
 //! Opening files from disk.
 
 use crate::encoding::{OpenMode, TextEncoding, decode_bytes, dominant_eol};
-use crate::fortiweb::Container;
+use crate::fortiweb::{Container, ParseOutcome, parse};
 use editor_core::Eol;
 use memmap2::Mmap;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::SystemTime;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -55,7 +56,25 @@ pub fn load_file(path: &Path) -> io::Result<LoadedFile> {
         Some(unsafe { Mmap::map(&file)? })
     };
     let bytes: &[u8] = map.as_deref().unwrap_or(&[]);
-    let (text, encoding, mode) = decode_bytes(bytes);
+    let (text, encoding, mode) = match parse(bytes, Arc::new(file)) {
+        ParseOutcome::Parsed { text, container } => {
+            let eol = dominant_eol(&text);
+            return Ok(LoadedFile {
+                text,
+                encoding: TextEncoding::Utf8 { bom: false },
+                eol,
+                mode: OpenMode::Editable,
+                kind: FileKind::FortiWebBackup,
+                source,
+                container: Some(container),
+            });
+        }
+        ParseOutcome::Malformed { reason } => {
+            let (text, encoding, _) = decode_bytes(bytes);
+            (text, encoding, OpenMode::ReadOnly { reason })
+        }
+        ParseOutcome::NotContainer => decode_bytes(bytes),
+    };
     let eol = dominant_eol(&text);
     Ok(LoadedFile {
         text,

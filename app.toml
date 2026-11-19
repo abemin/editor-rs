@@ -1,0 +1,4 @@
+display_name = "Editor RS"
+bundle_id = "io.github.abemin.editor-rs"
+dmg_name = "EditorRS"
+version = "0.1.0"

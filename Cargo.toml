@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["crates/editor-core", "crates/editor-formats", "crates/editor-search", "crates/editor-syntax", "crates/editor-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license-file = "LICENSE"
+publish = false
+
+[workspace.dependencies]
+editor-core = { path = "crates/editor-core" }
+editor-formats = { path = "crates/editor-formats" }
+editor-search = { path = "crates/editor-search" }
+editor-syntax = { path = "crates/editor-syntax" }
+ropey = { version = "1.6", default-features = false, features = ["simd", "cr_lines"] }
+unicode-segmentation = "1"
+encoding_rs = "0.8"
+memmap2 = "0.9"
+memchr = "2"
+blake3 = "1"
+libc = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+regex = "1.13"
+fancy-regex = "0.20"
+proptest = "1"
+tempfile = "3"
+
+[profile.release]
+lto = "thin"
+codegen-units = 4
+panic = "abort"
+strip = "symbols"
+opt-level = 3

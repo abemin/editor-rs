@@ -1,0 +1,12 @@
+[package]
+name = "editor-app"
+version.workspace = true
+edition.workspace = true
+license-file.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "EditorRS"
+path = "src/main.rs"
+
+[dependencies]

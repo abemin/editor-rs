@@ -1,0 +1,49 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "a\na\na\na\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "click",
+      "line": 1,
+      "column": 0
+    },
+    {
+      "type": "click",
+      "line": 3,
+      "column": 0,
+      "mods": [
+        "shift"
+      ]
+    },
+    {
+      "type": "menu",
+      "action": "FindAndReplace"
+    },
+    {
+      "type": "find",
+      "pattern": "a",
+      "replace": "b",
+      "in_selection": true
+    },
+    {
+      "type": "find_button",
+      "button": "Replace All"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "a\nb\nb\na\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

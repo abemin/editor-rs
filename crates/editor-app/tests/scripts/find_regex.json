@@ -1,0 +1,54 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "set ip 10\nset ip 20\nset mask 1\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "menu",
+      "action": "FindAndReplace"
+    },
+    {
+      "type": "find",
+      "pattern": "set ip (\\d+)",
+      "replace": "set ip $1.0",
+      "regex": true
+    },
+    {
+      "type": "find_button",
+      "button": "Next"
+    },
+    {
+      "type": "assert",
+      "what": "selected_text",
+      "equals": "set ip 10"
+    },
+    {
+      "type": "find_button",
+      "button": "Replace All"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "set ip 10.0\nset ip 20.0\nset mask 1\n"
+    },
+    {
+      "type": "assert",
+      "what": "find_status",
+      "contains": "2 replacements"
+    },
+    {
+      "type": "render",
+      "name": "find_regex"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

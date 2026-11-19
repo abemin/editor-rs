@@ -1,0 +1,44 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "x x x\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "menu",
+      "action": "FindAndReplace"
+    },
+    {
+      "type": "find",
+      "pattern": "x",
+      "replace": "yy"
+    },
+    {
+      "type": "find_button",
+      "button": "Replace All"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "yy yy yy\n"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "x x x\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

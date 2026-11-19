@@ -13,7 +13,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 const TABBING_ID: &str = "document";
-const STATUS_HEIGHT: f64 = 22.0;
+pub const STATUS_HEIGHT: f64 = 22.0;
 
 fn testing() -> bool {
     crate::app::args().test_script.is_some()
@@ -92,6 +92,9 @@ pub fn open_tab_with_id(mtm: MainThreadMarker, doc: EditorDoc, id: Option<String
         journaled: Cell::new(false),
         appended: Cell::new(0),
         cloned: Cell::new(false),
+        find: RefCell::new(None),
+        search_cancel: RefCell::new(None),
+        search_cache: RefCell::new(None),
     });
     let delegate = with_app(|a| a.window_delegate.clone());
     if let Some(delegate) = delegate {

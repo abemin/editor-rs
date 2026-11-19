@@ -134,6 +134,8 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         "clipboard" => json!(crate::input::clipboard_text()),
         "bookmarks" => json!(current(mtm)?.doc.borrow().doc.bookmarked_lines()),
         "status" => json!(current(mtm)?.status.stringValue().to_string()),
+        "find_status" => json!(crate::find_panel::status_text(&*current(mtm)?)),
+        "search_running" => json!(crate::find_panel::is_running(&*current(mtm)?)),
         "tab_texts" => json!(
             crate::app::tabs()
                 .iter()
@@ -521,6 +523,29 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 std::thread::sleep(std::time::Duration::from_millis(50));
             };
             SECOND_EXIT.with(|c| c.set(code));
+        }
+        "find" => {
+            let tab = current(mtm)?;
+            let flag = |name: &str| step.get(name).and_then(Value::as_bool);
+            crate::find_panel::set_fields(
+                &tab,
+                step["pattern"].as_str().unwrap_or_default(),
+                step["replace"].as_str(),
+                [
+                    flag("regex"),
+                    flag("ignore_case"),
+                    flag("whole_word"),
+                    flag("wrap"),
+                    flag("in_selection"),
+                ],
+            );
+        }
+        "find_button" => {
+            let tab = current(mtm)?;
+            let title = step["button"].as_str().unwrap_or_default();
+            let button = crate::find_panel::Button::from_title(title)
+                .ok_or(format!("unknown button {title}"))?;
+            crate::find_panel::press(mtm, &tab, button);
         }
         "answer" => crate::prompts::queue_answer(step["with"].as_str().unwrap_or_default()),
         "write_file" => std::fs::write(work_path(step)?, step["text"].as_str().unwrap_or_default())

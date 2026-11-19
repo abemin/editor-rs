@@ -29,6 +29,22 @@ pub fn perform(mtm: MainThreadMarker, action: MenuAction) {
         }
         _ => {}
     }
+    let Some(tab) = crate::window::current_tab(mtm) else {
+        return;
+    };
+    let fp = crate::find_panel::show;
+    match action {
+        MenuAction::Find => fp(mtm, &tab, false),
+        MenuAction::FindAndReplace => fp(mtm, &tab, true),
+        MenuAction::FindNext => crate::find_panel::find_next_match(&tab, false),
+        MenuAction::FindPrevious => crate::find_panel::find_next_match(&tab, true),
+        MenuAction::UseSelectionForFind => crate::find_panel::use_selection(mtm, &tab),
+        MenuAction::FindAll => crate::find_panel::bulk_from_menu(&tab, "find_all"),
+        MenuAction::ReplaceAll => crate::find_panel::bulk_from_menu(&tab, "replace_all"),
+        MenuAction::CountMatches => crate::find_panel::bulk_from_menu(&tab, "count"),
+        MenuAction::BookmarkAllMatches => crate::find_panel::bulk_from_menu(&tab, "bookmark_all"),
+        other => crate::bookmark_actions::perform(mtm, &tab, other),
+    }
 }
 
 pub fn is_enabled(mtm: MainThreadMarker, action: MenuAction) -> bool {

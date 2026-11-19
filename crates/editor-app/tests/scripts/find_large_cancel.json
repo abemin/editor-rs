@@ -1,0 +1,58 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "big.txt",
+      "pattern": "set http-service \"HTTP\" 10.0.0.1 enable\n",
+      "times": 2400000
+    },
+    {
+      "type": "open",
+      "file": "big.txt"
+    },
+    {
+      "type": "menu",
+      "action": "Find"
+    },
+    {
+      "type": "find",
+      "pattern": "(e)(n)(a)(b)(l)(e)$",
+      "regex": true
+    },
+    {
+      "type": "find_button",
+      "button": "Count"
+    },
+    {
+      "type": "assert",
+      "what": "search_running",
+      "equals": true
+    },
+    {
+      "type": "text",
+      "text": "Z"
+    },
+    {
+      "type": "assert",
+      "what": "line_text",
+      "line": 0,
+      "contains": "Zset"
+    },
+    {
+      "type": "find_button",
+      "button": "Stop"
+    },
+    {
+      "type": "wait",
+      "ms": 300
+    },
+    {
+      "type": "assert",
+      "what": "search_running",
+      "equals": false
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

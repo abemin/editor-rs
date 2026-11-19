@@ -28,6 +28,9 @@ pub struct Tab {
     pub appended: Cell<usize>,
     /// A private copy of a backup's protected sections exists.
     pub cloned: Cell<bool>,
+    pub find: RefCell<Option<crate::find_panel::FindBar>>,
+    pub search_cancel: RefCell<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    pub search_cache: RefCell<Option<(u64, std::sync::Arc<editor_search::SearchText>)>>,
 }
 
 pub struct App {
@@ -37,6 +40,7 @@ pub struct App {
     pub window_delegate: Option<Retained<crate::window_delegate::WindowDelegate>>,
     pub launched: bool,
     pub pending_urls: Vec<Retained<NSURL>>,
+    pub find: crate::find_panel::FindState,
     next_id: u64,
 }
 
@@ -49,6 +53,7 @@ impl Default for App {
             window_delegate: None,
             launched: false,
             pending_urls: Vec::new(),
+            find: Default::default(),
             next_id: 0,
         }
     }

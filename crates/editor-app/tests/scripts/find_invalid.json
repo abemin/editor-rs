@@ -1,0 +1,40 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "abc\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "menu",
+      "action": "Find"
+    },
+    {
+      "type": "find",
+      "pattern": "(abc",
+      "regex": true
+    },
+    {
+      "type": "find_button",
+      "button": "Next"
+    },
+    {
+      "type": "assert",
+      "what": "find_status",
+      "contains": "Invalid"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "abc\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

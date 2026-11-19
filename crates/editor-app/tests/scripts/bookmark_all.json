@@ -1,0 +1,69 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "a.txt",
+      "pattern": "set ip 1\nset Ip 2\nsetip 3\nend\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "a.txt"
+    },
+    {
+      "type": "menu",
+      "action": "Find"
+    },
+    {
+      "type": "find",
+      "pattern": "ip",
+      "ignore_case": true,
+      "whole_word": true
+    },
+    {
+      "type": "find_button",
+      "button": "Bookmark All"
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": [
+        0,
+        1
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "find_status",
+      "contains": "Bookmarked 2 lines"
+    },
+    {
+      "type": "menu",
+      "action": "ClearBookmarks"
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": []
+    },
+    {
+      "type": "key",
+      "key": "f2",
+      "mods": [
+        "cmd",
+        "option"
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": [
+        0,
+        1
+      ]
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

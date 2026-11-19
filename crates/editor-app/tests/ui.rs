@@ -155,4 +155,11 @@ scripts!(
     clear_session_data,
     disk_error_warning,
     second_launch,
+    find_regex,
+    find_invalid,
+    find_selection,
+    replace_all_undo,
+    find_large_cancel,
+    find_backup_locked,
+    bookmark_all,
 );

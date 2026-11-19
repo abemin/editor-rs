@@ -19,6 +19,7 @@ mod status_bar;
 mod test_mode;
 mod text_view;
 mod theme;
+mod view_actions;
 mod window;
 mod window_delegate;
 

@@ -1,6 +1,6 @@
 //! Syntax colors and block structure for visible lines.
 //!
-//! FortiWeb CLI keeps the scanner state at the start of each line and only
+//! Fortinet CLI keeps the scanner state at the start of each line and only
 //! rescans from the first changed line. Other languages use tree-sitter and
 //! re-parse after a change; very large files are shown without colors.
 

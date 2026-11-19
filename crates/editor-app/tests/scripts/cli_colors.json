@@ -13,7 +13,7 @@
     {
       "type": "assert",
       "what": "language",
-      "equals": "FortiWeb CLI"
+      "equals": "Fortinet CLI"
     },
     {
       "type": "assert",

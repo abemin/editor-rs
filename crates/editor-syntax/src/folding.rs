@@ -146,4 +146,13 @@ mod tests {
         assert_eq!(matching_block_line(&s, 2), Some(1));
         assert_eq!(matching_block_line(&s, 9), None);
     }
+
+    #[test]
+    fn data_blocks_are_not_checked_for_blocks() {
+        let s = structure(
+            "config a\nend\n#### FOLLOWING PART IS DLP ####\nnext\nend\n#### DLP DATA END ####\n",
+        );
+        assert!(s.issues.is_empty(), "{:?}", s.issues);
+        assert_eq!(s.folds.len(), 1);
+    }
 }

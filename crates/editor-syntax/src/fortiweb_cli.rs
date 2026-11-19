@@ -1,4 +1,5 @@
-//! Colors for FortiWeb CLI configuration.
+//! Colors for Fortinet CLI configuration (FortiWeb, FortiGate, FortiMail,
+//! FortiADC and other products that share the `config`/`edit` syntax).
 //!
 //! Words are colored by their position in a statement, so options that are
 //! missing from the documentation still look right.
@@ -64,6 +65,13 @@ enum Inner {
         quote: u8,
         certificate: bool,
     },
+    /// Base64 data between FortiMail's `#### FOLLOWING PART IS … ####` and
+    /// `#### … END ####` markers.
+    DataBlock,
+}
+
+fn starts_data_block(trimmed: &str) -> bool {
+    trimmed.starts_with("#### FOLLOWING PART IS") && trimmed.ends_with("####")
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -210,6 +218,22 @@ pub fn highlight_cli_line(line: &str, state: &LineState) -> (Vec<Span>, LineStat
         at: 0,
         spans: Vec::new(),
     };
+    if state.0 == Inner::DataBlock {
+        let trimmed = line.trim();
+        let start = line.len() - line.trim_start().len();
+        let end = start + trimmed.len();
+        if !trimmed.starts_with("####") {
+            s.push(start, end, Role::CertBlock);
+            return (s.spans, LineState(Inner::DataBlock));
+        }
+        s.push(start, end, Role::Comment);
+        let next = if starts_data_block(trimmed) {
+            Inner::DataBlock
+        } else {
+            Inner::Normal
+        };
+        return (s.spans, LineState(next));
+    }
     if let Inner::InString { quote, certificate } = state.0 {
         let next = s.string_body(0, quote, certificate, Role::String);
         if next != Inner::Normal {
@@ -225,6 +249,9 @@ pub fn highlight_cli_line(line: &str, state: &LineState) -> (Vec<Span>, LineStat
     let end = start + trimmed.len();
     if trimmed.starts_with('#') {
         s.push(start, end, Role::Comment);
+        if starts_data_block(trimmed) {
+            return (s.spans, LineState(Inner::DataBlock));
+        }
         return (s.spans, LineState::default());
     }
     if is_framing(trimmed) {
@@ -510,5 +537,49 @@ mod tests {
         let start = std::time::Instant::now();
         highlight_cli_line(&line, &LineState::default());
         assert!(start.elapsed().as_millis() < 5, "{:?}", start.elapsed());
+    }
+
+    fn roles_of(text: &str) -> Vec<Vec<Role>> {
+        let mut state = LineState::default();
+        text.lines()
+            .map(|line| {
+                let (spans, next) = highlight_cli_line(line, &state);
+                state = next;
+                spans.iter().map(|s| s.role).collect()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn fortimail_data_blocks_are_colored_as_embedded_data() {
+        let text = "end\n#### FOLLOWING PART IS USER UPLOAD LOGO ####\nQUJD+/9=\nend edit\n#### USER UPLOAD LOGO END ####\nconfig x\n";
+        let roles = roles_of(text);
+        assert_eq!(roles[1], vec![Role::Comment]);
+        assert_eq!(roles[2], vec![Role::CertBlock]);
+        assert_eq!(
+            roles[3],
+            vec![Role::CertBlock],
+            "CLI words inside data stay data"
+        );
+        assert_eq!(roles[4], vec![Role::Comment]);
+        assert_eq!(
+            roles[5][0],
+            Role::Keyword,
+            "CLI resumes after the end marker"
+        );
+    }
+
+    #[test]
+    fn a_new_data_block_can_follow_an_end_marker_directly() {
+        let text = "#### FOLLOWING PART IS A ####\nQQ==\n#### A END ####\n#### FOLLOWING PART IS DLP ####\nQg==\n#### DLP DATA END ####\n";
+        let roles = roles_of(text);
+        assert_eq!(roles[4], vec![Role::CertBlock]);
+        assert_eq!(roles[5], vec![Role::Comment]);
+    }
+
+    #[test]
+    fn ordinary_hash_comments_do_not_start_data() {
+        let roles = roles_of("#### notes ####\nconfig x\n");
+        assert_eq!(roles[1][0], Role::Keyword);
     }
 }

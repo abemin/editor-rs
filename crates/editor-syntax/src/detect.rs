@@ -36,7 +36,7 @@ impl Language {
     pub fn name(self) -> &'static str {
         match self {
             Language::Plain => "Plain Text",
-            Language::FortiWebCli => "FortiWeb CLI",
+            Language::FortiWebCli => "Fortinet CLI",
             Language::Json => "JSON",
             Language::Shell => "Shell Script",
             Language::Python => "Python",
@@ -49,6 +49,10 @@ impl Language {
     }
 
     pub fn from_name(name: &str) -> Option<Language> {
+        if name == "FortiWeb CLI" {
+            // The name used before other Fortinet products were supported.
+            return Some(Language::FortiWebCli);
+        }
         Language::ALL.into_iter().find(|l| l.name() == name)
     }
 }
@@ -169,6 +173,44 @@ mod tests {
             Language::Plain
         );
         assert_eq!(detect(None, ""), Language::Plain);
+    }
+
+    #[test]
+    fn cli_is_called_fortinet_and_old_sessions_still_restore() {
+        assert_eq!(Language::FortiWebCli.name(), "Fortinet CLI");
+        assert_eq!(
+            Language::from_name("FortiWeb CLI"),
+            Some(Language::FortiWebCli)
+        );
+    }
+
+    #[test]
+    fn detects_every_fortinet_product_header() {
+        for (name, head) in [
+            (
+                "fortigate.conf",
+                "#config-version=FGT60F-7.2.5-FW-build1517-230606:opmode=0:vdom=0\n",
+            ),
+            (
+                "fortimail.cfg",
+                "#config-version=FEVM-7.2-FW-build0399\nconfig system global\n",
+            ),
+            (
+                "fortiadc.conf",
+                "config system global\n  set hostname \"adc\"\nend\n",
+            ),
+            (
+                "fortiweb.conf",
+                "#config-version=FV-1KF-7.4.0-FW-build0123\n",
+            ),
+            ("backup", "[header]\nmagic=CC05E358\n"),
+        ] {
+            assert_eq!(
+                detect(Some(Path::new(name)), head),
+                Language::FortiWebCli,
+                "{name}"
+            );
+        }
     }
 
     #[test]

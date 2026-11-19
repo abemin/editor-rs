@@ -290,7 +290,7 @@ dependencies = [
 
 [[package]]
 name = "editor-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "block2",
  "dispatch2",
@@ -316,7 +316,7 @@ dependencies = [
 
 [[package]]
 name = "editor-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "proptest",
@@ -326,11 +326,12 @@ dependencies = [
 
 [[package]]
 name = "editor-formats"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "blake3",
  "criterion",
  "editor-core",
+ "editor-syntax",
  "encoding_rs",
  "libc",
  "memchr",
@@ -343,7 +344,7 @@ dependencies = [
 
 [[package]]
 name = "editor-search"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "editor-core",
@@ -354,7 +355,7 @@ dependencies = [
 
 [[package]]
 name = "editor-syntax"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ropey",
  "streaming-iterator",

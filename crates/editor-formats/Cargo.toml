@@ -16,6 +16,7 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+editor-syntax.workspace = true
 criterion.workspace = true
 proptest.workspace = true
 tempfile.workspace = true

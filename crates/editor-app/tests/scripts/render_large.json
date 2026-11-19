@@ -1,0 +1,13 @@
+{
+  "steps": [
+    { "type": "generate", "file": "big.txt", "pattern": "  set http-service \"HTTP\" 10.0.0.1 enable\n", "times": 2400000 },
+    { "type": "open", "file": "big.txt" },
+    { "type": "wait", "ms": 300 },
+    { "type": "scroll", "line": 1200000, "column": 0 },
+    { "type": "render", "name": "render_large" },
+    { "type": "assert", "what": "line_count", "equals": 2400001 },
+    { "type": "assert", "what": "visible_line_layouts", "less_than": 201 },
+    { "type": "assert", "what": "first_paint_ms", "less_than": 5000 },
+    { "type": "quit" }
+  ]
+}

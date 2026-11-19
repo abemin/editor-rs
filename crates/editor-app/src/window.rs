@@ -1,12 +1,15 @@
 //! Document windows. Each tab is a window in a native tab group.
 
 use crate::app::{Tab, with_app};
+use crate::doc_model::EditorDoc;
+use crate::text_view::{TextView, update_frames};
 use objc2::{MainThreadMarker, MainThreadOnly};
-
 use objc2_app_kit::{
-    NSApplication, NSBackingStoreType, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSBackingStoreType, NSScrollView, NSView, NSWindow,
+    NSWindowOrderingMode, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{NSPoint, NSRect, NSSize, NSString};
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 const TABBING_ID: &str = "document";
@@ -16,7 +19,8 @@ fn testing() -> bool {
 }
 
 /// Creates a tab. It joins the frontmost window's tab group when there is one.
-pub fn open_tab(mtm: MainThreadMarker, title: &str) -> Rc<Tab> {
+pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
+    let title = doc.title();
     let style = NSWindowStyleMask::Titled
         | NSWindowStyleMask::Closable
         | NSWindowStyleMask::Miniaturizable
@@ -32,31 +36,41 @@ pub fn open_tab(mtm: MainThreadMarker, title: &str) -> Rc<Tab> {
         )
     };
     unsafe { window.setReleasedWhenClosed(false) };
-    window.setTitle(&NSString::from_str(title));
+    window.setTitle(&NSString::from_str(&title));
     window.setTabbingMode(NSWindowTabbingMode::Preferred);
     window.setTabbingIdentifier(&NSString::from_str(TABBING_ID));
     window.setMinSize(NSSize::new(320.0, 200.0));
 
-    let tab = with_app(|a| {
-        let tab = Rc::new(Tab {
-            id: a.new_tab_id(),
-            window: window.clone(),
-        });
-        a.tabs.push(tab.clone());
-        tab
+    let id = with_app(|a| a.new_tab_id());
+    let container = NSView::initWithFrame(NSView::alloc(mtm), window.contentLayoutRect());
+    let scroll = NSScrollView::initWithFrame(NSScrollView::alloc(mtm), container.bounds());
+    scroll.setHasVerticalScroller(true);
+    scroll.setHasHorizontalScroller(true);
+    scroll.setAutohidesScrollers(true);
+    scroll.setAutoresizingMask(
+        NSAutoresizingMaskOptions::ViewWidthSizable | NSAutoresizingMaskOptions::ViewHeightSizable,
+    );
+    let view = TextView::new(mtm, &id);
+    scroll.setDocumentView(Some(&view));
+    #[allow(deprecated)]
+    scroll.contentView().setCopiesOnScroll(false);
+    container.addSubview(&scroll);
+    window.setContentView(Some(&container));
+    let tab = Rc::new(Tab {
+        id,
+        window: window.clone(),
+        doc: RefCell::new(doc),
+        view: view.clone(),
+        scroll,
+        opened_at: Cell::new(None),
+        first_paint_ms: Cell::new(None),
     });
-    let front = NSApplication::sharedApplication(mtm)
-        .keyWindow()
-        .or_else(|| {
-            crate::app::tabs()
-                .iter()
-                .rev()
-                .nth(1)
-                .map(|t| t.window.clone())
-        });
+    let front = NSApplication::sharedApplication(mtm).keyWindow();
+    with_app(|a| a.tabs.push(tab.clone()));
+    update_frames(&tab);
     match front {
         Some(front) if !std::ptr::eq(&*front, &*window) => {
-            front.addTabbedWindow_ordered(&window, objc2_app_kit::NSWindowOrderingMode::Above)
+            front.addTabbedWindow_ordered(&window, NSWindowOrderingMode::Above);
         }
         _ => {
             if testing() {
@@ -67,6 +81,7 @@ pub fn open_tab(mtm: MainThreadMarker, title: &str) -> Rc<Tab> {
         }
     }
     window.makeKeyAndOrderFront(None);
+    window.makeFirstResponder(Some(&view));
     tab
 }
 
@@ -87,12 +102,13 @@ pub fn window_count() -> usize {
 /// The tab the user is looking at.
 pub fn current_tab(mtm: MainThreadMarker) -> Option<Rc<Tab>> {
     let app = NSApplication::sharedApplication(mtm);
-    let window = app.keyWindow().or_else(|| app.mainWindow());
-    let tabs = crate::app::tabs();
-    if let Some(window) = window
+    if let Some(window) = app.keyWindow().or_else(|| app.mainWindow())
         && let Some(tab) = with_app(|a| a.tab_for_window(&window))
     {
         return Some(tab);
     }
-    tabs.into_iter().rev().find(|t| t.window.isVisible())
+    crate::app::tabs()
+        .into_iter()
+        .rev()
+        .find(|t| t.window.isVisible())
 }

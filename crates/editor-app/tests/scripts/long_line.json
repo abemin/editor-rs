@@ -1,0 +1,11 @@
+{
+  "steps": [
+    { "type": "generate", "file": "long.txt", "pattern": "abcdefghij", "times": 2000 },
+    { "type": "open", "file": "long.txt" },
+    { "type": "scroll", "line": 0, "column": 15000 },
+    { "type": "render", "name": "long_line" },
+    { "type": "assert", "what": "laid_out_columns", "less_than": 2000 },
+    { "type": "assert", "what": "laid_out_columns", "greater_than": 50 },
+    { "type": "quit" }
+  ]
+}

@@ -24,7 +24,7 @@ define_class!(
         fn did_finish_launching(&self, _notification: &NSNotification) {
             let mtm = self.mtm();
             crate::menus::install(mtm, self);
-            crate::window::open_tab(mtm, "Untitled");
+            crate::window::open_tab(mtm, crate::doc_model::EditorDoc::untitled());
             if let Some(script) = crate::app::args().test_script {
                 crate::test_mode::start(mtm, &script);
             } else {
@@ -70,7 +70,7 @@ impl AppDelegate {
 pub fn perform(mtm: MainThreadMarker, action: MenuAction) {
     match action {
         MenuAction::NewTab => {
-            crate::window::open_tab(mtm, "Untitled");
+            crate::window::open_tab(mtm, crate::doc_model::EditorDoc::untitled());
         }
         MenuAction::CloseTab => {
             if let Some(tab) = crate::window::current_tab(mtm) {

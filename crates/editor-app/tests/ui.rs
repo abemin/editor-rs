@@ -83,4 +83,4 @@ macro_rules! scripts {
     ($($name:ident),* $(,)?) => { $( #[test] fn $name() { run_script(stringify!($name)); } )* };
 }
 
-scripts!(launch);
+scripts!(launch, render_large, long_line);

@@ -3,8 +3,14 @@
 mod app;
 mod app_delegate;
 mod config;
+mod doc_model;
+mod document_controller;
+mod highlight;
+mod layout;
 mod menus;
 mod test_mode;
+mod text_view;
+mod theme;
 mod window;
 
 use objc2::MainThreadMarker;

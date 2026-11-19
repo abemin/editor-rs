@@ -5,7 +5,7 @@
 
 use crate::app::args;
 use block2::RcBlock;
-use objc2::MainThreadMarker;
+use objc2::{DefinedClass, MainThreadMarker};
 use objc2_app_kit::{NSApplication, NSBitmapImageFileType};
 use objc2_foundation::{NSDictionary, NSString, NSTimer};
 use serde_json::{Value, json};
@@ -100,11 +100,29 @@ fn query(mtm: MainThreadMarker, what: &str, _step: &Value) -> Result<Value, Stri
             json!(crate::window::current_tab(mtm).map(|t| t.window.title().to_string()))
         }
         "menu_titles" => json!(crate::menus::titles(mtm)),
+        "line_count" => json!(current(mtm)?.doc.borrow().doc.buffer().rope().len_lines()),
+        "visible_line_layouts" => json!(current(mtm)?.view.ivars().stats.get().lines),
+        "laid_out_columns" => json!(current(mtm)?.view.ivars().stats.get().max_columns),
+        "first_paint_ms" => json!(current(mtm)?.first_paint_ms.get()),
         other => return Err(format!("unknown query {other}")),
     })
 }
 
+fn current(mtm: MainThreadMarker) -> Result<std::rc::Rc<crate::app::Tab>, String> {
+    crate::window::current_tab(mtm).ok_or_else(|| "no current tab".to_string())
+}
+
+fn work_path(step: &Value) -> Result<std::path::PathBuf, String> {
+    let file = step["file"].as_str().ok_or("step needs file")?;
+    Ok(args().work_dir.ok_or("no work folder")?.join(file))
+}
+
 fn check(actual: &Value, step: &Value) -> Result<(), String> {
+    if let Some(limit) = step.get("greater_than").and_then(Value::as_f64)
+        && actual.as_f64().is_none_or(|v| v <= limit)
+    {
+        return Err(format!("expected greater than {limit}, got {actual}"));
+    }
     if let Some(expected) = step.get("equals")
         && actual != expected
     {
@@ -160,6 +178,20 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
             crate::app_delegate::perform(mtm, action);
         }
         "render" => render(mtm, step["name"].as_str().unwrap_or("render"))?,
+        "generate" => {
+            let pattern = step["pattern"].as_str().unwrap_or_default();
+            let times = step["times"].as_u64().unwrap_or(1) as usize;
+            std::fs::write(work_path(step)?, pattern.repeat(times)).map_err(|e| e.to_string())?;
+        }
+        "open" => {
+            crate::document_controller::open_path(mtm, &work_path(step)?)?;
+        }
+        "scroll" => {
+            let tab = current(mtm)?;
+            let line = step["line"].as_u64().unwrap_or(0) as usize;
+            let column = step["column"].as_u64().unwrap_or(0) as usize;
+            crate::text_view::scroll_to(&tab, line, column);
+        }
         "wait" => return Ok(step["ms"].as_f64().unwrap_or(100.0) / 1000.0),
         "quit" => {}
         other => return Err(format!("unknown step type {other}")),

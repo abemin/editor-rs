@@ -22,6 +22,10 @@
           "equals": "x"
         },
         {
+          "type": "answer",
+          "with": "Don't Save"
+        },
+        {
           "type": "quit"
         }
       ]

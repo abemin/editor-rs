@@ -1,0 +1,37 @@
+{
+  "runs": [
+    {
+      "session_dir_readonly": true,
+      "steps": [
+        {
+          "type": "text",
+          "text": "unsaved"
+        },
+        {
+          "type": "answer",
+          "with": "Cancel"
+        },
+        {
+          "type": "try_quit"
+        },
+        {
+          "type": "assert",
+          "what": "quit_allowed",
+          "equals": false
+        },
+        {
+          "type": "assert",
+          "what": "last_prompt",
+          "contains": "Do you want to save"
+        },
+        {
+          "type": "answer",
+          "with": "Don't Save"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

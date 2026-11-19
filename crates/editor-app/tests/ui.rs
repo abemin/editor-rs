@@ -87,6 +87,17 @@ pub fn run_script(name: &str) -> serde_json::Value {
             if let Some(file) = action["delete"].as_str() {
                 std::fs::remove_file(work.path().join(file)).unwrap();
             }
+            if action["corrupt_snapshots"].as_bool() == Some(true) {
+                for entry in std::fs::read_dir(&session).unwrap() {
+                    let path = entry.unwrap().path();
+                    if path.extension().is_some_and(|e| e == "snap") {
+                        let mut bytes = std::fs::read(&path).unwrap();
+                        let last = bytes.len() - 1;
+                        bytes[last] ^= 0xFF;
+                        std::fs::write(&path, bytes).unwrap();
+                    }
+                }
+            }
             if let Some(file) = action["write"].as_str() {
                 std::fs::write(work.path().join(file), action["text"].as_str().unwrap()).unwrap();
             }
@@ -116,8 +127,10 @@ pub fn run_script(name: &str) -> serde_json::Value {
             .unwrap();
         let start = Instant::now();
         let kill_after = run["kill_after_ms"].as_u64().map(Duration::from_millis);
+        let mut status = None;
         loop {
-            if child.try_wait().unwrap().is_some() {
+            if let Some(exit) = child.try_wait().unwrap() {
+                status = Some(exit);
                 break;
             }
             if kill_after.is_some_and(|k| start.elapsed() > k) {
@@ -134,6 +147,11 @@ pub fn run_script(name: &str) -> serde_json::Value {
         if kill_after.is_some() {
             continue;
         }
+        let status = status.expect("app exited");
+        assert!(
+            status.success(),
+            "{name} run {index}: app exited abnormally ({status})"
+        );
         let text = std::fs::read_to_string(&report)
             .unwrap_or_else(|_| panic!("{name} run {index}: no report written"));
         let value: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -205,4 +223,10 @@ scripts!(
     reopen_encoding,
     accessibility,
     preferences,
+    find_after_reload,
+    restore_untitled_with_object_replacement,
+    reopen_then_restore,
+    reopen_utf16_refused,
+    unreliable_autosave_prompts,
+    restore_damaged_snapshot,
 );

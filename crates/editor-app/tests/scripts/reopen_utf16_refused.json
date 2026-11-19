@@ -1,0 +1,34 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "write_bytes",
+          "file": "u.txt",
+          "hex": "6800 6900"
+        },
+        {
+          "type": "open",
+          "file": "u.txt"
+        },
+        {
+          "type": "reopen_encoding",
+          "name": "UTF-16 LE"
+        },
+        {
+          "type": "assert",
+          "what": "last_prompt",
+          "contains": "can't be shown as UTF-16 LE"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "h\u0000i\u0000"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

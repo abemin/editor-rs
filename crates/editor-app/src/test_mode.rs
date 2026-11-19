@@ -42,6 +42,7 @@ pub fn preload_answers(script: &Path) {
 
 thread_local! {
     static SECOND_EXIT: std::cell::Cell<Option<i32>> = const { std::cell::Cell::new(None) };
+    static QUIT_ALLOWED: std::cell::Cell<Option<bool>> = const { std::cell::Cell::new(None) };
 }
 
 pub fn start(mtm: MainThreadMarker, script: &Path) {
@@ -228,6 +229,7 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
                 .map(|t| t.doc.borrow().doc.bookmarked_lines())
                 .collect::<Vec<_>>()
         ),
+        "quit_allowed" => json!(QUIT_ALLOWED.with(|c| c.get())),
         "second_exit" => json!(SECOND_EXIT.with(|c| c.get())),
         "session_file_count" => {
             let root = args().session_dir.ok_or("no session folder")?;
@@ -748,6 +750,10 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
             note(
                 json!({ "name": "find_all_ms", "value": start.elapsed().as_secs_f64() * 1000.0, "matches": found.len() }),
             );
+        }
+        "try_quit" => {
+            let allowed = crate::document_controller::may_terminate(mtm);
+            QUIT_ALLOWED.with(|c| c.set(Some(allowed)));
         }
         "answer" => crate::prompts::queue_answer(step["with"].as_str().unwrap_or_default()),
         "write_file" => std::fs::write(work_path(step)?, step["text"].as_str().unwrap_or_default())

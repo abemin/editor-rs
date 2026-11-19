@@ -1,0 +1,38 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "text",
+          "text": "a\ufffcb"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "type": "assert",
+          "what": "tab_texts",
+          "equals": [
+            "a\ufffcb"
+          ]
+        },
+        {
+          "type": "assert",
+          "what": "dirty",
+          "equals": true
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

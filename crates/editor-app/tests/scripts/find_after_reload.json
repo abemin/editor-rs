@@ -1,0 +1,64 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "alpha beta",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "menu",
+          "action": "FindAndReplace"
+        },
+        {
+          "type": "find",
+          "pattern": "beta",
+          "replace": "X"
+        },
+        {
+          "type": "find_button",
+          "button": "Count"
+        },
+        {
+          "type": "wait",
+          "ms": 1100
+        },
+        {
+          "type": "answer",
+          "with": "Reload"
+        },
+        {
+          "type": "write_file",
+          "file": "a.txt",
+          "text": "beta alpha gamma"
+        },
+        {
+          "type": "check_external"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "beta alpha gamma"
+        },
+        {
+          "type": "find_button",
+          "button": "Replace All"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "X alpha gamma"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

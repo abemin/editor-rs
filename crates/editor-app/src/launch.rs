@@ -91,8 +91,16 @@ fn apply_restored_text(doc: &mut EditorDoc, text: &str) -> bool {
     if current == text {
         return true;
     }
-    let old_parts: Vec<&str> = current.split(PLACEHOLDER).collect();
-    let new_parts: Vec<&str> = text.split(PLACEHOLDER).collect();
+    // Only backups have protected sections; elsewhere U+FFFC is ordinary text.
+    let split = |t: &str| -> Vec<String> {
+        if doc.container.is_some() {
+            t.split(PLACEHOLDER).map(str::to_string).collect()
+        } else {
+            vec![t.to_string()]
+        }
+    };
+    let old_parts = split(&current);
+    let new_parts = split(text);
     if old_parts.len() != new_parts.len() {
         return false;
     }
@@ -142,7 +150,15 @@ fn restore_tab(mtm: MainThreadMarker, entry: RestoredTab) -> Option<Rc<Tab>> {
         .filter(|p| p.exists());
     let Some(text) = entry.text else {
         let path = record.path.as_ref()?;
-        return crate::document_controller::open_path(mtm, path).ok();
+        let tab = crate::document_controller::open_path(mtm, path).ok()?;
+        if record.dirty {
+            *tab.notice.borrow_mut() = Some(
+                "Unsaved changes for this file could not be recovered from auto-save. The file on disk is unchanged."
+                    .to_string(),
+            );
+            crate::status_bar::refresh(&tab);
+        }
+        return Some(tab);
     };
     let mut notice = None;
     let mut doc = match &record.path {

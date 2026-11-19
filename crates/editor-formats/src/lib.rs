@@ -8,7 +8,7 @@ pub mod session;
 
 pub use encoding::{
     EncodingMismatch, OpenMode, TextEncoding, UnrepresentableChar, decode_bytes, dominant_eol,
-    encode_text, reopen_with,
+    encode_text, reopen_as, reopen_with,
 };
 pub use load::{FileKind, LoadedFile, SourceIdentity, load_file};
 pub use save::{Chunk, SaveError, atomic_write};

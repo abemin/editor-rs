@@ -1,0 +1,56 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "generate",
+          "file": "a.txt",
+          "pattern": "keep me\n",
+          "times": 1
+        },
+        {
+          "type": "open",
+          "file": "a.txt"
+        },
+        {
+          "type": "text",
+          "text": "x"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "before": [
+        {
+          "corrupt_snapshots": true
+        }
+      ],
+      "steps": [
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "keep me\n"
+        },
+        {
+          "type": "assert",
+          "what": "dirty",
+          "equals": false
+        },
+        {
+          "type": "assert",
+          "what": "notice",
+          "contains": "could not be recovered"
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

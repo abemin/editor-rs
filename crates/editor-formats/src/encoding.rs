@@ -120,6 +120,50 @@ pub fn reopen_with(bytes: &[u8], encoding: &'static Encoding) -> Result<String, 
     Ok(text.into_owned())
 }
 
+/// Reopens bytes with an encoding chosen from the menu.
+/// Refuses any choice that would not save back exactly the same bytes.
+pub fn reopen_as(bytes: &[u8], name: &str) -> Result<(String, TextEncoding), EncodingMismatch> {
+    let (text, encoding) = match name {
+        "UTF-8" => {
+            let (body, bom) = match bytes.strip_prefix(UTF8_BOM) {
+                Some(rest) => (rest, true),
+                None => (bytes, false),
+            };
+            (
+                std::str::from_utf8(body)
+                    .map_err(|_| EncodingMismatch)?
+                    .to_string(),
+                TextEncoding::Utf8 { bom },
+            )
+        }
+        "UTF-16 LE" => {
+            let body = bytes.strip_prefix(b"\xFF\xFE").ok_or(EncodingMismatch)?;
+            (
+                utf16(body, UTF_16LE).ok_or(EncodingMismatch)?,
+                TextEncoding::Utf16Le,
+            )
+        }
+        "UTF-16 BE" => {
+            let body = bytes.strip_prefix(b"\xFE\xFF").ok_or(EncodingMismatch)?;
+            (
+                utf16(body, UTF_16BE).ok_or(EncodingMismatch)?,
+                TextEncoding::Utf16Be,
+            )
+        }
+        label => {
+            let encoding = Encoding::for_label(label.as_bytes()).ok_or(EncodingMismatch)?;
+            (
+                reopen_with(bytes, encoding)?,
+                TextEncoding::SingleByte(encoding),
+            )
+        }
+    };
+    if encode_text(&text, &encoding).ok().as_deref() != Some(bytes) {
+        return Err(EncodingMismatch);
+    }
+    Ok((text, encoding))
+}
+
 /// The most common line ending, judged from the start of the text.
 pub fn dominant_eol(text: &str) -> Eol {
     let bytes = &text.as_bytes()[..text.len().min(EOL_SAMPLE)];
@@ -222,6 +266,36 @@ mod tests {
     #[test]
     fn reopen_refuses_a_lossy_encoding() {
         assert!(reopen_with(b"\xA1", encoding_rs::ISO_8859_8).is_err());
+    }
+
+    #[test]
+    fn reopen_as_utf16_without_bom_is_refused() {
+        assert!(reopen_as(b"h\0i\0", "UTF-16 LE").is_err());
+    }
+
+    #[test]
+    fn reopen_as_utf16_with_matching_bom_round_trips() {
+        let (text, encoding) = reopen_as(b"\xFF\xFEh\0i\0", "UTF-16 LE").unwrap();
+        assert_eq!(text, "hi");
+        assert_eq!(encode_text(&text, &encoding).unwrap(), b"\xFF\xFEh\0i\0");
+    }
+
+    #[test]
+    fn reopen_as_wrong_byte_order_is_refused() {
+        assert!(reopen_as(b"\xFF\xFEh\0i\0", "UTF-16 BE").is_err());
+    }
+
+    #[test]
+    fn reopen_as_utf8_keeps_a_bom() {
+        let (text, encoding) = reopen_as(b"\xEF\xBB\xBFhi", "UTF-8").unwrap();
+        assert_eq!(text, "hi");
+        assert_eq!(encode_text(&text, &encoding).unwrap(), b"\xEF\xBB\xBFhi");
+    }
+
+    #[test]
+    fn reopen_as_single_byte_round_trips() {
+        let (text, _) = reopen_as(b"caf\xE9", "ISO-8859-2").unwrap();
+        assert_eq!(text, "café");
     }
 
     #[test]

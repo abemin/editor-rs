@@ -193,6 +193,12 @@ impl SessionStore {
     /// Durably records edits made since the last snapshot.
     pub fn append(&self, id: &str, batches: &[EditBatch]) -> io::Result<()> {
         check_id(id)?;
+        if !self.snapshot_path(id).exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "no snapshot to journal against",
+            ));
+        }
         let generation = self.generation(id);
         let path = self.journal_path(id);
         let mut data = Vec::new();
@@ -207,18 +213,18 @@ impl SessionStore {
         file.sync_all()
     }
 
+    /// The saved text of a tab. A missing or damaged snapshot gives `None`, never
+    /// empty text, so the caller falls back to the file on disk.
     fn restore_text(&self, id: &str) -> (Option<String>, bool) {
         if check_id(id).is_err() {
             return (None, true);
         }
         let snapshot_exists = self.snapshot_path(id).exists();
-        let snapshot = read_snapshot(&self.snapshot_path(id));
-        let mut partial = snapshot_exists && snapshot.is_none();
-        let (generation, base) = snapshot.unwrap_or((0, String::new()));
         let journal = std::fs::read(self.journal_path(id)).ok();
-        if !snapshot_exists && journal.is_none() {
-            return (None, false);
-        }
+        let Some((generation, base)) = read_snapshot(&self.snapshot_path(id)) else {
+            return (None, snapshot_exists || journal.is_some());
+        };
+        let mut partial = false;
         let mut buffer = Buffer::new(&base);
         if let Some(bytes) = journal
             && bytes.len() >= GENERATION_LEN
@@ -236,6 +242,49 @@ impl SessionStore {
         (Some(buffer.rope().to_string()), partial)
     }
 
+    /// When the list of tabs is unusable, every readable snapshot is still offered.
+    fn orphans(&self) -> Vec<RestoredTab> {
+        let Ok(entries) = std::fs::read_dir(&self.root) else {
+            return Vec::new();
+        };
+        let mut ids: Vec<String> = entries
+            .filter_map(Result::ok)
+            .filter_map(|e| {
+                e.file_name()
+                    .to_str()?
+                    .strip_suffix(".snap")
+                    .map(str::to_string)
+            })
+            .collect();
+        ids.sort();
+        ids.into_iter()
+            .filter_map(|id| {
+                let (text, recovered_partial) = self.restore_text(&id);
+                let text = text?;
+                let record = TabRecord {
+                    id: id.clone(),
+                    path: None,
+                    title: "Recovered".to_string(),
+                    dirty: true,
+                    caret: 0,
+                    scroll_line: 0,
+                    bookmarks: Vec::new(),
+                    word_wrap: false,
+                    language: None,
+                    encoding: "UTF-8".to_string(),
+                    source_len: None,
+                    source_modified_ms: None,
+                    has_protected_clone: false,
+                };
+                Some(RestoredTab {
+                    record,
+                    text: Some(text),
+                    recovered_partial,
+                })
+            })
+            .collect()
+    }
+
     fn set_manifest_aside(&self) {
         let path = self.root.join(MANIFEST);
         let _ = std::fs::rename(&path, path.with_extension("json.unsupported"));
@@ -250,12 +299,12 @@ impl SessionStore {
             Ok(manifest) => manifest,
             Err(_) => {
                 self.set_manifest_aside();
-                return Vec::new();
+                return self.orphans();
             }
         };
         if manifest.version != MANIFEST_VERSION {
             self.set_manifest_aside();
-            return Vec::new();
+            return self.orphans();
         }
         manifest
             .tabs

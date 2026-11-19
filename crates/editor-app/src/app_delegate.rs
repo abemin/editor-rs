@@ -58,7 +58,11 @@ define_class!(
         #[unsafe(method(applicationShouldTerminate:))]
         fn should_terminate(&self, _sender: &NSApplication) -> NSApplicationTerminateReply {
             crate::session_driver::flush_now();
-            NSApplicationTerminateReply::TerminateNow
+            if crate::document_controller::may_terminate(self.mtm()) {
+                NSApplicationTerminateReply::TerminateNow
+            } else {
+                NSApplicationTerminateReply::TerminateCancel
+            }
         }
 
         #[unsafe(method(applicationShouldTerminateAfterLastWindowClosed:))]

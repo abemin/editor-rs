@@ -13,6 +13,9 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Instant;
 
+/// (document epoch, buffer revision) and the text a search ran over.
+pub type CachedSearch = ((u64, u64), std::sync::Arc<editor_search::SearchText>);
+
 pub struct Tab {
     pub id: String,
     pub window: Retained<NSWindow>,
@@ -33,7 +36,9 @@ pub struct Tab {
     pub highlight: RefCell<crate::highlight::Highlighting>,
     pub folds: RefCell<crate::folds::Folds>,
     pub wrap_cache: RefCell<Option<crate::rows::WrapCache>>,
-    pub search_cache: RefCell<Option<(u64, std::sync::Arc<editor_search::SearchText>)>>,
+    pub search_cache: RefCell<Option<CachedSearch>>,
+    /// Changes whenever the whole document is replaced (reload, reopen).
+    pub epoch: Cell<u64>,
 }
 
 pub struct App {
@@ -75,8 +80,13 @@ pub fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> R {
 
 impl App {
     pub fn new_tab_id(&mut self) -> String {
-        self.next_id += 1;
-        format!("t{}-{}", std::process::id(), self.next_id)
+        let stamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_millis());
+        let tabs = &self.tabs;
+        unique_id(stamp, std::process::id(), &mut self.next_id, |id| {
+            tabs.iter().any(|t| t.id == id)
+        })
     }
 
     pub fn tab_for_window(&self, window: &NSWindow) -> Option<Rc<Tab>> {
@@ -87,8 +97,30 @@ impl App {
     }
 }
 
+/// A tab id that is unique across launches and not used by any open tab.
+pub fn unique_id(stamp: u128, pid: u32, counter: &mut u64, taken: impl Fn(&str) -> bool) -> String {
+    loop {
+        *counter += 1;
+        let id = format!("t{stamp:x}-{pid}-{counter}");
+        if !taken(&id) {
+            return id;
+        }
+    }
+}
+
+/// `None` also while the app state is being torn down at exit, when AppKit
+/// can still send actions from views that are being removed.
 pub fn tab_by_id(id: &str) -> Option<Rc<Tab>> {
-    with_app(|a| a.tabs.iter().find(|t| t.id == id).cloned())
+    APP.try_with(|app| {
+        app.try_borrow()
+            .ok()?
+            .tabs
+            .iter()
+            .find(|t| t.id == id)
+            .cloned()
+    })
+    .ok()
+    .flatten()
 }
 
 pub fn tabs() -> Vec<Rc<Tab>> {
@@ -97,4 +129,18 @@ pub fn tabs() -> Vec<Rc<Tab>> {
 
 pub fn args() -> Args {
     with_app(|a| a.args.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unique_id;
+
+    #[test]
+    fn ids_skip_ones_in_use_and_include_a_time_stamp() {
+        let mut counter = 0;
+        let id = unique_id(0xabc, 7, &mut counter, |id| id == "tabc-7-1");
+        assert_eq!(id, "tabc-7-2");
+        let other_launch = unique_id(0xabd, 7, &mut 0, |_| false);
+        assert_ne!(other_launch, "tabc-7-1");
+    }
 }

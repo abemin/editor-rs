@@ -183,6 +183,18 @@ pub fn save_as_dialog(mtm: MainThreadMarker, tab: &Rc<Tab>) -> bool {
     save_to(mtm, tab, Path::new(&path.to_string()))
 }
 
+/// Puts a whole new document into a tab, dropping everything tied to the old text.
+pub fn replace_document(tab: &Rc<Tab>, fresh: EditorDoc) {
+    crate::find_panel::cancel(tab);
+    *tab.doc.borrow_mut() = fresh;
+    tab.epoch.set(tab.epoch.get() + 1);
+    *tab.search_cache.borrow_mut() = None;
+    tab.folds.borrow_mut().clear();
+    crate::rows::invalidate(tab);
+    crate::highlight::reset(tab);
+    crate::session_driver::saved(tab);
+}
+
 /// Replaces the text with the file on disk.
 pub fn reload(mtm: MainThreadMarker, tab: &Rc<Tab>) {
     let Some(path) = tab.doc.borrow().path.clone() else {
@@ -196,9 +208,7 @@ pub fn reload(mtm: MainThreadMarker, tab: &Rc<Tab>) {
             fresh
                 .doc
                 .set_selections(editor_core::SelectionSet::single(caret.min(len)));
-            *tab.doc.borrow_mut() = fresh;
-            tab.folds.borrow_mut().clear();
-            crate::highlight::reset(tab);
+            replace_document(tab, fresh);
             tab.window.setDocumentEdited(false);
             crate::input::after_change(tab, true);
             tab.window.setDocumentEdited(false);
@@ -313,7 +323,7 @@ pub fn close_tab(mtm: MainThreadMarker, tab: &Rc<Tab>) -> CloseOutcome {
 /// The window close button. The last window closes without asking: its
 /// tabs stay in the session and come back next time.
 pub fn should_close_window(mtm: MainThreadMarker, tab: &Rc<Tab>) -> bool {
-    if tabs().len() <= 1 {
+    if tabs().len() <= 1 && crate::session_driver::is_reliable() {
         crate::session_driver::flush_now();
         return true;
     }
@@ -409,4 +419,12 @@ pub fn open_urls(mtm: MainThreadMarker, urls: &[objc2::rc::Retained<NSURL>]) {
             open_or_tell(mtm, Path::new(&path.to_string()));
         }
     }
+}
+
+/// Whether the app may quit now. Without working auto-save, unsaved tabs are asked about.
+pub fn may_terminate(mtm: MainThreadMarker) -> bool {
+    if crate::session_driver::is_reliable() {
+        return true;
+    }
+    tabs().iter().all(|tab| confirm_close(mtm, tab))
 }

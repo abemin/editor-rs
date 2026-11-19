@@ -50,6 +50,11 @@ pub fn warning() -> Option<String> {
     WARNING.lock().expect("warning lock").clone()
 }
 
+/// Auto-save is running and its last write succeeded.
+pub fn is_reliable() -> bool {
+    root().is_some() && warning().is_none()
+}
+
 pub fn default_root() -> PathBuf {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -92,7 +97,7 @@ fn writer(store: SessionStore, rx: Receiver<Msg>) {
     let mut manifest: Option<Manifest> = None;
     let mut last_message = Instant::now();
     let report = |result: std::io::Result<()>| match result {
-        Ok(()) => {}
+        Ok(()) => set_warning(None),
         Err(error) => set_warning(Some(format!(
             "Auto-save is not working ({error}). Changes are kept only when you save."
         ))),
@@ -208,7 +213,7 @@ pub fn note_change(tab: &Tab) {
     }
     if !batches.is_empty() {
         let compact = tab.appended.get() + batches.len() > COMPACT_AFTER;
-        if !tab.journaled.get() || compact {
+        if !tab.journaled.get() || compact || warning().is_some() {
             let (is_backup, path) = {
                 let doc = tab.doc.borrow();
                 (doc.container.is_some(), doc.path.clone())

@@ -95,6 +95,7 @@ pub fn open_tab_with_id(mtm: MainThreadMarker, doc: EditorDoc, id: Option<String
         find: RefCell::new(None),
         search_cancel: RefCell::new(None),
         search_cache: RefCell::new(None),
+        epoch: Cell::new(0),
         highlight: RefCell::new(Default::default()),
         folds: RefCell::new(Default::default()),
         wrap_cache: RefCell::new(None),

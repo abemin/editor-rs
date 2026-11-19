@@ -55,12 +55,42 @@ fn snapshot_plus_journal_restores_text() {
 }
 
 #[test]
-fn journal_without_snapshot_starts_from_empty_text() {
+fn append_without_snapshot_is_refused() {
+    let dir = root();
+    let store = SessionStore::open(dir.path()).unwrap();
+    assert!(store.append("a", &[insert(0, "typed")]).is_err());
+    assert!(!store.journal_path("a").exists());
+}
+
+#[test]
+fn damaged_snapshot_restores_nothing_instead_of_empty_text() {
     let dir = root();
     let store = SessionStore::open(dir.path()).unwrap();
     store.write_manifest(&manifest(&["a"])).unwrap();
-    store.append("a", &[insert(0, "typed")]).unwrap();
-    assert_eq!(store.restore()[0].text.as_deref(), Some("typed"));
+    store.snapshot("a", "precious text").unwrap();
+    store.append("a", &[insert(0, "x")]).unwrap();
+    let path = store.snapshot_path("a");
+    let mut bytes = std::fs::read(&path).unwrap();
+    let last = bytes.len() - 1;
+    bytes[last] ^= 0xFF;
+    std::fs::write(&path, bytes).unwrap();
+    let tab = &store.restore()[0];
+    assert_eq!(tab.text, None);
+    assert!(tab.recovered_partial);
+}
+
+#[test]
+fn unusable_manifest_still_offers_every_snapshot() {
+    let dir = root();
+    let store = SessionStore::open(dir.path()).unwrap();
+    store.snapshot("lost1", "first draft").unwrap();
+    store.append("lost1", &[insert(11, "!")]).unwrap();
+    std::fs::write(dir.path().join("manifest.json"), "{not json").unwrap();
+    let tabs = store.restore();
+    assert_eq!(tabs.len(), 1);
+    assert_eq!(tabs[0].text.as_deref(), Some("first draft!"));
+    assert!(tabs[0].record.dirty);
+    assert_eq!(tabs[0].record.path, None);
 }
 
 #[test]
@@ -76,6 +106,7 @@ fn new_snapshot_replaces_old_journal() {
     let dir = root();
     let store = SessionStore::open(dir.path()).unwrap();
     store.write_manifest(&manifest(&["a"])).unwrap();
+    store.snapshot("a", "").unwrap();
     store.append("a", &[insert(0, "old")]).unwrap();
     store.snapshot("a", "fresh").unwrap();
     store.append("a", &[insert(5, "!")]).unwrap();
@@ -138,6 +169,7 @@ fn truncated_journal_keeps_valid_prefix() {
     let dir = root();
     let store = SessionStore::open(dir.path()).unwrap();
     store.write_manifest(&manifest(&["a"])).unwrap();
+    store.snapshot("a", "").unwrap();
     store.append("a", &[insert(0, "first")]).unwrap();
     store.append("a", &[insert(5, " second")]).unwrap();
     let path = store.journal_path("a");
@@ -158,6 +190,7 @@ fn corrupt_record_stops_replay_there() {
     let dir = root();
     let store = SessionStore::open(dir.path()).unwrap();
     store.write_manifest(&manifest(&["a"])).unwrap();
+    store.snapshot("a", "").unwrap();
     store.append("a", &[insert(0, "first")]).unwrap();
     store.append("a", &[insert(5, " second")]).unwrap();
     store.append("a", &[insert(12, " third")]).unwrap();
@@ -263,6 +296,7 @@ fn crash_child() {
     };
     let store = SessionStore::open(Path::new(&root)).unwrap();
     store.write_manifest(&manifest(&["a"])).unwrap();
+    store.snapshot("a", "").unwrap();
     let mut at = 0;
     loop {
         let digit = char::from(b'0' + (at % 10) as u8);

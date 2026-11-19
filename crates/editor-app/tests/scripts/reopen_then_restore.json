@@ -1,0 +1,59 @@
+{
+  "runs": [
+    {
+      "steps": [
+        {
+          "type": "write_bytes",
+          "file": "l.txt",
+          "hex": "636166e90a"
+        },
+        {
+          "type": "open",
+          "file": "l.txt"
+        },
+        {
+          "type": "text",
+          "text": "zz"
+        },
+        {
+          "type": "answer",
+          "with": "Reopen"
+        },
+        {
+          "type": "reopen_encoding",
+          "name": "ISO-8859-2"
+        },
+        {
+          "type": "assert",
+          "what": "text",
+          "equals": "caf\u00e9\n"
+        },
+        {
+          "type": "text",
+          "text": "X"
+        },
+        {
+          "type": "wait",
+          "ms": 200
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    },
+    {
+      "steps": [
+        {
+          "type": "assert",
+          "what": "tab_texts",
+          "equals": [
+            "Xcaf\u00e9\n"
+          ]
+        },
+        {
+          "type": "quit"
+        }
+      ]
+    }
+  ]
+}

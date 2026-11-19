@@ -131,47 +131,26 @@ pub fn reopen_with_encoding(mtm: objc2::MainThreadMarker, tab: &Rc<Tab>, name: &
     let Ok(bytes) = std::fs::read(&path) else {
         return;
     };
-    let label = match name {
-        "UTF-16 LE" => "utf-16le",
-        "UTF-16 BE" => "utf-16be",
-        other => other,
-    };
-    let Some(encoding) = encoding_rs::Encoding::for_label(label.as_bytes()) else {
-        return;
-    };
-    let text = match name {
-        "UTF-8" => std::str::from_utf8(&bytes)
-            .map(str::to_string)
-            .map_err(|_| ()),
-        "UTF-16 LE" | "UTF-16 BE" => encoding
-            .decode_without_bom_handling_and_without_replacement(bytes.get(2..).unwrap_or_default())
-            .map(|t| t.into_owned())
-            .ok_or(()),
-        _ => editor_formats::reopen_with(&bytes, encoding).map_err(|_| ()),
-    };
-    let Ok(text) = text else {
+    let Ok((text, encoding)) = editor_formats::reopen_as(&bytes, name) else {
         crate::prompts::tell(
             mtm,
             &format!("The file can't be shown as {name} without changing it."),
-            "Some bytes in the file have no meaning in that encoding, so it was left as it was.",
+            "Some bytes would not be saved back exactly as they are, so the file was left as it was.",
         );
         return;
     };
-    let new_encoding = match name {
-        "UTF-8" => editor_formats::TextEncoding::Utf8 { bom: false },
-        "UTF-16 LE" => editor_formats::TextEncoding::Utf16Le,
-        "UTF-16 BE" => editor_formats::TextEncoding::Utf16Be,
-        _ => editor_formats::TextEncoding::SingleByte(encoding),
-    };
+    let mut fresh = crate::doc_model::EditorDoc::untitled();
+    fresh.doc = editor_core::Document::new(&text, editor_formats::dominant_eol(&text));
+    fresh.encoding = encoding;
+    fresh.max_columns = crate::doc_model::longest_line(&text);
     {
-        let mut doc = tab.doc.borrow_mut();
-        let eol = editor_formats::dominant_eol(&text);
-        doc.doc = editor_core::Document::new(&text, eol);
-        doc.encoding = new_encoding;
-        doc.max_columns = crate::doc_model::longest_line(&text);
+        let old = tab.doc.borrow();
+        fresh.path = old.path.clone();
+        fresh.source = old.source.clone();
+        fresh.language = old.language;
+        fresh.word_wrap = old.word_wrap;
     }
-    tab.folds.borrow_mut().clear();
-    crate::highlight::reset(tab);
+    crate::document_controller::replace_document(tab, fresh);
     update_frames(tab);
     crate::status_bar::refresh(tab);
 }

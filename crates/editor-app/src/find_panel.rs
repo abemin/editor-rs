@@ -416,9 +416,9 @@ fn compile(tab: &Tab, state: &FindState) -> Option<Query> {
     }
 }
 
-fn snapshot(tab: &Tab) -> (Arc<SearchText>, u64) {
+fn snapshot(tab: &Tab) -> (Arc<SearchText>, (u64, u64)) {
     let doc = tab.doc.borrow();
-    let revision = doc.doc.buffer().revision();
+    let revision = (tab.epoch.get(), doc.doc.buffer().revision());
     if let Some((cached, text)) = tab.search_cache.borrow().as_ref()
         && *cached == revision
     {
@@ -549,9 +549,9 @@ fn work(
     }
 }
 
-fn finish(tab: &Rc<Tab>, kind: Bulk, state: &FindState, revision: u64, outcome: Outcome) {
+fn finish(tab: &Rc<Tab>, kind: Bulk, state: &FindState, revision: (u64, u64), outcome: Outcome) {
     *tab.search_cancel.borrow_mut() = None;
-    if tab.doc.borrow().doc.buffer().revision() != revision {
+    if (tab.epoch.get(), tab.doc.borrow().doc.buffer().revision()) != revision {
         set_status(tab, "The document changed during the search. Run it again.");
         return;
     }

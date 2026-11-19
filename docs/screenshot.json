@@ -1,0 +1,12 @@
+{
+  "steps": [
+    { "type": "open", "path": "docs/sample.conf" },
+    { "type": "appearance", "mode": "light" },
+    { "type": "wait", "ms": 300 },
+    { "type": "render", "name": "screenshot-light" },
+    { "type": "appearance", "mode": "dark" },
+    { "type": "wait", "ms": 300 },
+    { "type": "render", "name": "screenshot-dark" },
+    { "type": "quit" }
+  ]
+}

@@ -4,6 +4,11 @@
 
 Open a FortiGate, FortiWeb, FortiMail or FortiADC configuration and read it the way the device does: colored, folded by block, with mismatched blocks flagged. Edit full FortiWeb backups without breaking the encrypted parts, and get them back onto the device intact. Editor RS is written in Rust on AppKit, starts in a fraction of a second, and works offline. Your configurations never leave your Mac.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshot-dark.png">
+  <img alt="Editor RS showing a sample Fortinet configuration with colored config, edit and set statements, addresses, an ENC secret, WAF actions and severities" src="docs/screenshot-light.png" width="900">
+</picture>
+
 ## Built for Fortinet configurations
 
 - **One CLI language for every product.** Tested on FortiGate (FortiOS), FortiWeb, FortiMail and FortiADC configurations. Other products that use the same `config` / `edit` / `set` syntax color the same way. Files are recognized by their content, so `.conf`, `.cfg` and files with no extension all work.
@@ -44,6 +49,8 @@ scripts/make-dmg.sh                # builds the installer in dist/
 scripts/perf-report.sh             # measures the speed targets
 scripts/check-cli.sh <config>...   # checks coloring and folding of real configs, printing no contents
 scripts/verify-backup.sh <backup>  # checks a real FortiWeb backup survives open, edit and save
+target/release/EditorRS --test-script docs/screenshot.json --artifacts docs --session-dir "$(mktemp -d)" --report /dev/null
+                                   # redraws the README screenshots from docs/sample.conf
 cargo test --workspace             # runs every test, including the app's UI scripts
 ```
 
@@ -61,4 +68,4 @@ Fortinet, FortiGate, FortiWeb, FortiMail, FortiADC and FortiOS are trademarks of
 
 ## Licence
 
-Editor RS is released under the [MIT License](LICENSE). Copyright © 2026 abemin. Open-source components it includes are listed in `THIRD_PARTY_NOTICES.md`.
+Editor RS is released under the [MIT License](LICENSE). Open-source components it includes are listed in `THIRD_PARTY_NOTICES.md`.

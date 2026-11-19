@@ -212,10 +212,8 @@ fn removed_placeholder_refuses_save() {
     let (_d, path) = write(&typical());
     let file = load_file(&path).unwrap();
     let edited = file.text.replace(PLACEHOLDER, "");
-    assert_eq!(
-        validate(&edited, &[]).unwrap_err(),
-        ContainerError::LockedMissing
-    );
+    let result = chunks(&edited, &[], file.container.as_ref().unwrap());
+    assert_eq!(result.err(), Some(ContainerError::LockedMissing));
 }
 
 #[test]

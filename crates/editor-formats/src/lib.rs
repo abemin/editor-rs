@@ -4,6 +4,7 @@ pub mod encoding;
 pub mod fortiweb;
 pub mod load;
 pub mod save;
+pub mod session;
 
 pub use encoding::{
     EncodingMismatch, OpenMode, TextEncoding, UnrepresentableChar, decode_bytes, dominant_eol,

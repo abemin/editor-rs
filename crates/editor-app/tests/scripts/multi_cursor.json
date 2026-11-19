@@ -1,0 +1,17 @@
+{
+  "steps": [
+    { "type": "text", "text": "abcd\na\nabcd" },
+    { "type": "click", "line": 0, "column": 0 },
+    { "type": "click", "line": 2, "column": 0, "mods": ["cmd"] },
+    { "type": "text", "text": "#" },
+    { "type": "assert", "what": "text", "equals": "#abcd\na\n#abcd" },
+    { "type": "click", "line": 0, "column": 2, "mods": ["option"] },
+    { "type": "drag", "line": 2, "column": 4, "mods": ["option"] },
+    { "type": "assert", "what": "selection_count", "equals": 3 },
+    { "type": "assert", "what": "selected_text", "equals": "bc\n\nbc" },
+    { "type": "click", "line": 0, "column": 2, "count": 2 },
+    { "type": "assert", "what": "selected_text", "equals": "abcd" },
+    { "type": "render", "name": "multi_cursor" },
+    { "type": "quit" }
+  ]
+}

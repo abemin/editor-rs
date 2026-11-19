@@ -5,14 +5,17 @@ use crate::layout::{DisplayLine, display_line};
 use crate::theme::{self, Theme, color};
 use editor_syntax::Role;
 use objc2::rc::Retained;
-use objc2::runtime::{AnyObject, NSObjectProtocol};
+use objc2::runtime::{AnyObject, NSObjectProtocol, Sel};
 use objc2::{DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send};
-use objc2_app_kit::NSAttributedStringNSStringDrawing;
 use objc2_app_kit::{
-    NSBezierPath, NSFont, NSFontAttributeName, NSFontWeightRegular, NSForegroundColorAttributeName,
-    NSView,
+    NSAttributedStringNSStringDrawing, NSBeep, NSBezierPath, NSEvent, NSEventModifierFlags, NSFont,
+    NSFontAttributeName, NSFontWeightRegular, NSForegroundColorAttributeName, NSResponder,
+    NSTextInputClient, NSUnderlineStyleAttributeName, NSView,
 };
-use objc2_foundation::{NSMutableAttributedString, NSPoint, NSRange, NSRect, NSSize, NSString};
+use objc2_foundation::{
+    NSArray, NSAttributedString, NSAttributedStringKey, NSMutableAttributedString, NSNumber,
+    NSPoint, NSRange, NSRect, NSSize, NSString, NSUInteger,
+};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -112,6 +115,8 @@ fn fill(rect: NSRect, rgb: (f64, f64, f64)) {
 pub struct TextViewIvars {
     pub tab_id: RefCell<String>,
     pub stats: Cell<DrawStats>,
+    pub marked: RefCell<Option<String>>,
+    pub drag: Cell<Option<crate::input::DragAnchor>>,
 }
 
 define_class!(
@@ -123,7 +128,190 @@ define_class!(
 
     unsafe impl NSObjectProtocol for TextView {}
 
+    unsafe impl NSTextInputClient for TextView {
+        #[unsafe(method(insertText:replacementRange:))]
+        fn insert_text(&self, string: &AnyObject, _range: NSRange) {
+            let text = object_text(string);
+            *self.ivars().marked.borrow_mut() = None;
+            if let Some(tab) = self.tab() {
+                crate::input::edit(&tab, |d| d.insert_text(&text));
+            }
+        }
+
+        #[unsafe(method(doCommandBySelector:))]
+        fn do_command(&self, selector: Sel) {
+            if let Some(tab) = self.tab()
+                && !crate::input::command(&tab, selector.name().to_str().unwrap_or_default())
+            {
+                NSBeep();
+            }
+        }
+
+        #[unsafe(method(setMarkedText:selectedRange:replacementRange:))]
+        fn set_marked_text(&self, string: &AnyObject, _selected: NSRange, _replacement: NSRange) {
+            let text = object_text(string);
+            *self.ivars().marked.borrow_mut() = if text.is_empty() { None } else { Some(text) };
+            self.setNeedsDisplay(true);
+        }
+
+        #[unsafe(method(unmarkText))]
+        fn unmark_text(&self) {
+            let marked = self.ivars().marked.borrow_mut().take();
+            if let (Some(text), Some(tab)) = (marked, self.tab()) {
+                crate::input::edit(&tab, |d| d.insert_text(&text));
+            }
+        }
+
+        #[unsafe(method(selectedRange))]
+        fn selected_range(&self) -> NSRange {
+            self.tab().map_or(NSRange::new(0, 0), |tab| {
+                let s = tab.doc.borrow().doc.selections().primary();
+                NSRange::new(s.min(), s.max() - s.min())
+            })
+        }
+
+        #[unsafe(method(markedRange))]
+        fn marked_range(&self) -> NSRange {
+            match (&*self.ivars().marked.borrow(), self.tab()) {
+                (Some(text), Some(tab)) => {
+                    let head = tab.doc.borrow().doc.selections().primary().head;
+                    NSRange::new(head, text.encode_utf16().count())
+                }
+                _ => NSRange::new(usize::MAX >> 1, 0),
+            }
+        }
+
+        #[unsafe(method(hasMarkedText))]
+        fn has_marked_text(&self) -> bool {
+            self.ivars().marked.borrow().is_some()
+        }
+
+        #[unsafe(method_id(attributedSubstringForProposedRange:actualRange:))]
+        fn attributed_substring(&self, _range: NSRange, _actual: *mut NSRange) -> Option<Retained<NSAttributedString>> {
+            None
+        }
+
+        #[unsafe(method_id(validAttributesForMarkedText))]
+        fn valid_attributes(&self) -> Retained<NSArray<NSAttributedStringKey>> {
+            NSArray::new()
+        }
+
+        #[unsafe(method(firstRectForCharacterRange:actualRange:))]
+        fn first_rect(&self, _range: NSRange, _actual: *mut NSRange) -> NSRect {
+            let Some(tab) = self.tab() else { return NSRect::ZERO };
+            let (line, column) = {
+                let doc = tab.doc.borrow();
+                let (line, column) = doc.doc.line_col(doc.doc.selections().primary().head);
+                (line, display_line(&doc, line).column_of(column))
+            };
+            let rect = rect_for(&tab, line, column);
+            let in_window = self.convertRect_toView(rect, None);
+            tab.window.convertRectToScreen(in_window)
+        }
+
+        #[unsafe(method(characterIndexForPoint:))]
+        fn character_index(&self, point: NSPoint) -> NSUInteger {
+            let Some(tab) = self.tab() else { return 0 };
+            let in_window = tab.window.convertPointFromScreen(point);
+            let local = self.convertPoint_fromView(in_window, None);
+            crate::input::offset_at_point(&tab, local).0
+        }
+    }
+
     impl TextView {
+        #[unsafe(method(keyDown:))]
+        fn key_down(&self, event: &NSEvent) {
+            self.interpretKeyEvents(&NSArray::from_slice(&[event]));
+        }
+
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            let Some(tab) = self.tab() else { return };
+            if let Some(window) = self.window() {
+                window.makeFirstResponder(Some(self));
+            }
+            let point = self.convertPoint_fromView(event.locationInWindow(), None);
+            let m = metrics();
+            let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+            if point.x < self.visibleRect().origin.x + gutter_width(lines, &m) {
+                let line = (point.y / m.line_height).floor().max(0.0) as usize;
+                crate::bookmark_actions::toggle_line(&tab, line);
+                return;
+            }
+            let flags = event.modifierFlags();
+            let mods = crate::input::Modifiers {
+                command: flags.contains(NSEventModifierFlags::Command),
+                option: flags.contains(NSEventModifierFlags::Option),
+                shift: flags.contains(NSEventModifierFlags::Shift),
+            };
+            let (offset, line, column) = crate::input::offset_at_point(&tab, point);
+            let anchor = crate::input::click(&tab, offset, line, column, mods, event.clickCount().max(1) as usize);
+            self.ivars().drag.set(Some(anchor));
+        }
+
+        #[unsafe(method(mouseDragged:))]
+        fn mouse_dragged(&self, event: &NSEvent) {
+            let (Some(tab), Some(anchor)) = (self.tab(), self.ivars().drag.get()) else { return };
+            self.autoscroll(event);
+            let point = self.convertPoint_fromView(event.locationInWindow(), None);
+            let (offset, line, column) = crate::input::offset_at_point(&tab, point);
+            crate::input::drag(&tab, anchor, offset, line, column);
+        }
+
+        #[unsafe(method(mouseUp:))]
+        fn mouse_up(&self, _event: &NSEvent) {
+            self.ivars().drag.set(None);
+        }
+
+        #[unsafe(method(copy:))]
+        fn copy_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::copy(&tab);
+            }
+        }
+
+        #[unsafe(method(cut:))]
+        fn cut_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::cut(&tab);
+            }
+        }
+
+        #[unsafe(method(paste:))]
+        fn paste_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::paste(&tab);
+            }
+        }
+
+        #[unsafe(method(undo:))]
+        fn undo_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::undo(&tab);
+            }
+        }
+
+        #[unsafe(method(redo:))]
+        fn redo_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::redo(&tab);
+            }
+        }
+
+        #[unsafe(method(selectAll:))]
+        fn select_all_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::select_all(&tab);
+            }
+        }
+
+        #[unsafe(method(deleteBackward:))]
+        fn delete_backward_action(&self, _sender: Option<&AnyObject>) {
+            if let Some(tab) = self.tab() {
+                crate::input::command(&tab, "deleteBackward:");
+            }
+        }
+
         #[unsafe(method(isFlipped))]
         fn is_flipped(&self) -> bool {
             true
@@ -156,11 +344,27 @@ define_class!(
     }
 );
 
+fn object_text(object: &AnyObject) -> String {
+    if let Some(attributed) = object.downcast_ref::<NSAttributedString>() {
+        attributed.string().to_string()
+    } else if let Some(string) = object.downcast_ref::<NSString>() {
+        string.to_string()
+    } else {
+        String::new()
+    }
+}
+
 impl TextView {
+    pub fn tab(&self) -> Option<Rc<Tab>> {
+        tab_by_id(&self.ivars().tab_id.borrow())
+    }
+
     pub fn new(mtm: MainThreadMarker, tab_id: &str) -> Retained<Self> {
         let this = Self::alloc(mtm).set_ivars(TextViewIvars {
             tab_id: RefCell::new(tab_id.to_string()),
             stats: Cell::new(DrawStats::default()),
+            marked: RefCell::new(None),
+            drag: Cell::new(None),
         });
         unsafe {
             msg_send![super(this), initWithFrame: NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(800.0, 600.0))]
@@ -260,6 +464,28 @@ fn draw_text(view: &TextView, tab: &Tab, dirty: NSRect) -> DrawStats {
         stats.max_columns = stats.max_columns.max(end - first_column);
     }
     draw_carets(&doc, first, last, theme, &m, left);
+    if let Some(marked) = view.ivars().marked.borrow().as_ref() {
+        let (line, column) = doc.doc.line_col(doc.doc.selections().primary().head);
+        let column = display_line(&doc, line).column_of(column);
+        let origin = NSPoint::new(
+            left + column as f64 * m.advance,
+            line as f64 * m.line_height,
+        );
+        let width = marked.chars().count() as f64 * m.advance;
+        fill(
+            NSRect::new(origin, NSSize::new(width, m.line_height)),
+            theme.background,
+        );
+        let text = attributed(marked, &font, theme.text, &[]);
+        unsafe {
+            text.addAttribute_value_range(
+                NSUnderlineStyleAttributeName,
+                &*NSNumber::new_isize(1) as &AnyObject,
+                NSRange::new(0, marked.encode_utf16().count()),
+            );
+        }
+        text.drawAtPoint(NSPoint::new(origin.x, origin.y + m.baseline_pad));
+    }
     stats
 }
 

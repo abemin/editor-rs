@@ -1,0 +1,97 @@
+{
+  "steps": [
+    {
+      "type": "text",
+      "text": "hello world"
+    },
+    {
+      "type": "key",
+      "key": "left",
+      "mods": [
+        "option"
+      ]
+    },
+    {
+      "type": "key",
+      "key": "backspace"
+    },
+    {
+      "type": "text",
+      "text": "_"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "hello_world"
+    },
+    {
+      "type": "key",
+      "key": "return"
+    },
+    {
+      "type": "text",
+      "text": "x"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "hello_\nxworld"
+    },
+    {
+      "type": "key",
+      "key": "right",
+      "mods": [
+        "shift",
+        "cmd"
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "selected_text",
+      "equals": "world"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "hello_\nworld"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "helloworld"
+    },
+    {
+      "type": "send",
+      "selector": "redo:"
+    },
+    {
+      "type": "send",
+      "selector": "redo:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "hello_\nxworld"
+    },
+    {
+      "type": "assert",
+      "what": "dirty",
+      "equals": true
+    },
+    {
+      "type": "render",
+      "name": "typing"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

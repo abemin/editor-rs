@@ -5,9 +5,11 @@
 
 use crate::app::args;
 use block2::RcBlock;
-use objc2::{DefinedClass, MainThreadMarker};
-use objc2_app_kit::{NSApplication, NSBitmapImageFileType};
-use objc2_foundation::{NSDictionary, NSString, NSTimer};
+use objc2::{DefinedClass, MainThreadMarker, msg_send};
+use objc2_app_kit::{
+    NSApplication, NSBitmapImageFileType, NSEvent, NSEventModifierFlags, NSEventType,
+};
+use objc2_foundation::{NSDictionary, NSPoint, NSRange, NSString, NSTimer};
 use serde_json::{Value, json};
 use std::cell::RefCell;
 use std::path::Path;
@@ -19,6 +21,9 @@ struct Runner {
     index: usize,
     failures: Vec<Value>,
     notes: Vec<Value>,
+    generated: std::collections::HashMap<String, Vec<u8>>,
+    saved_clipboard: Option<String>,
+    render_stats: crate::text_view::DrawStats,
 }
 
 thread_local! {
@@ -35,6 +40,9 @@ pub fn start(mtm: MainThreadMarker, script: &Path) {
             index: 0,
             failures: Vec::new(),
             notes: Vec::new(),
+            generated: Default::default(),
+            saved_clipboard: None,
+            render_stats: Default::default(),
         })
     });
     schedule(mtm, STEP_DELAY);
@@ -92,7 +100,7 @@ fn run_next(mtm: MainThreadMarker) {
 }
 
 /// Values a script can assert on.
-fn query(mtm: MainThreadMarker, what: &str, _step: &Value) -> Result<Value, String> {
+fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, String> {
     Ok(match what {
         "window_count" => json!(crate::window::window_count()),
         "tab_count" => json!(crate::app::tabs().len()),
@@ -101,10 +109,37 @@ fn query(mtm: MainThreadMarker, what: &str, _step: &Value) -> Result<Value, Stri
         }
         "menu_titles" => json!(crate::menus::titles(mtm)),
         "line_count" => json!(current(mtm)?.doc.borrow().doc.buffer().rope().len_lines()),
-        "visible_line_layouts" => json!(current(mtm)?.view.ivars().stats.get().lines),
-        "laid_out_columns" => json!(current(mtm)?.view.ivars().stats.get().max_columns),
+        "visible_line_layouts" => json!(render_stats().lines),
+        "laid_out_columns" => json!(render_stats().max_columns),
         "first_paint_ms" => json!(current(mtm)?.first_paint_ms.get()),
+        "text" => json!(current(mtm)?.doc.borrow().doc.text()),
+        "selected_text" => json!(current(mtm)?.doc.borrow().doc.selected_text()),
+        "selection_count" => json!(current(mtm)?.doc.borrow().doc.selections().ranges().len()),
+        "dirty" => json!(current(mtm)?.doc.borrow().doc.is_dirty()),
+        "marked" => json!(*current(mtm)?.view.ivars().marked.borrow()),
+        "notice" => json!(*current(mtm)?.notice.borrow()),
+        "clipboard" => json!(crate::input::clipboard_text()),
+        "bookmarks" => json!(current(mtm)?.doc.borrow().doc.bookmarked_lines()),
+        "file_unchanged" => {
+            let path = work_path(step)?;
+            let file = step["file"].as_str().unwrap_or_default().to_string();
+            let original = RUNNER.with(|r| {
+                r.borrow()
+                    .as_ref()
+                    .and_then(|r| r.generated.get(&file).cloned())
+            });
+            json!(original.is_some_and(|o| std::fs::read(path).ok() == Some(o)))
+        }
         other => return Err(format!("unknown query {other}")),
+    })
+}
+
+fn render_stats() -> crate::text_view::DrawStats {
+    RUNNER.with(|r| {
+        r.borrow()
+            .as_ref()
+            .map(|r| r.render_stats)
+            .unwrap_or_default()
     })
 }
 
@@ -150,6 +185,8 @@ fn render(mtm: MainThreadMarker, name: &str) -> Result<(), String> {
         .bitmapImageRepForCachingDisplayInRect(bounds)
         .ok_or("cannot create bitmap")?;
     view.cacheDisplayInRect_toBitmapImageRep(bounds, &rep);
+    let stats = tab.view.ivars().stats.get();
+    RUNNER.with(|r| r.borrow_mut().as_mut().map(|r| r.render_stats = stats));
     let data = unsafe {
         rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new())
     }
@@ -162,6 +199,132 @@ fn render(mtm: MainThreadMarker, name: &str) -> Result<(), String> {
     } else {
         Err(format!("could not write {}", path.display()))
     }
+}
+
+fn modifiers(step: &Value) -> crate::input::Modifiers {
+    let has = |name: &str| {
+        step["mods"]
+            .as_array()
+            .is_some_and(|m| m.iter().any(|v| v == name))
+    };
+    crate::input::Modifiers {
+        command: has("cmd"),
+        option: has("option"),
+        shift: has("shift"),
+    }
+}
+
+/// Sends a real key event through the view's key handling.
+fn key(mtm: MainThreadMarker, step: &Value) -> Result<(), String> {
+    let tab = current(mtm)?;
+    let name = step["key"].as_str().ok_or("key needs key")?;
+    let (code, chars): (u16, String) = match name {
+        "left" => (123, "\u{F702}".into()),
+        "right" => (124, "\u{F703}".into()),
+        "down" => (125, "\u{F701}".into()),
+        "up" => (126, "\u{F700}".into()),
+        "backspace" => (51, "\u{7f}".into()),
+        "delete" => (117, "\u{F728}".into()),
+        "return" => (36, "\r".into()),
+        "tab" => (48, "\t".into()),
+        "escape" => (53, "\u{1b}".into()),
+        "home" => (115, "\u{F729}".into()),
+        "end" => (119, "\u{F72B}".into()),
+        "pageup" => (116, "\u{F72C}".into()),
+        "pagedown" => (121, "\u{F72D}".into()),
+        "f2" => (120, "\u{F705}".into()),
+        other if other.chars().count() == 1 => (0, other.into()),
+        other => return Err(format!("unknown key {other}")),
+    };
+    let has = |m: &str| {
+        step["mods"]
+            .as_array()
+            .is_some_and(|a| a.iter().any(|v| v == m))
+    };
+    let mut flags = NSEventModifierFlags::empty();
+    if has("cmd") {
+        flags |= NSEventModifierFlags::Command;
+    }
+    if has("option") {
+        flags |= NSEventModifierFlags::Option;
+    }
+    if has("shift") {
+        flags |= NSEventModifierFlags::Shift;
+    }
+    if has("control") {
+        flags |= NSEventModifierFlags::Control;
+    }
+    if chars.starts_with([
+        '\u{F700}', '\u{F701}', '\u{F702}', '\u{F703}', '\u{F728}', '\u{F729}', '\u{F72B}',
+        '\u{F72C}', '\u{F72D}', '\u{F705}',
+    ]) {
+        flags |= NSEventModifierFlags::Function;
+        if matches!(name, "left" | "right" | "up" | "down") {
+            flags |= NSEventModifierFlags::NumericPad;
+        }
+    }
+    let characters = NSString::from_str(&chars);
+    let event = unsafe {
+        NSEvent::keyEventWithType_location_modifierFlags_timestamp_windowNumber_context_characters_charactersIgnoringModifiers_isARepeat_keyCode(
+            NSEventType::KeyDown,
+            NSPoint::new(0.0, 0.0),
+            flags,
+            0.0,
+            tab.window.windowNumber(),
+            None,
+            &characters,
+            &characters,
+            false,
+            code,
+        )
+    }
+    .ok_or("could not create key event")?;
+    if flags.contains(NSEventModifierFlags::Command)
+        && NSApplication::sharedApplication(mtm)
+            .mainMenu()
+            .is_some_and(|m| m.performKeyEquivalent(&event))
+    {
+        return Ok(());
+    }
+    let _: () = unsafe { msg_send![&*tab.view, keyDown: &*event] };
+    Ok(())
+}
+
+/// A synthetic backup in the documented format. Contains no real data.
+fn synthetic_backup(sections: &[Value]) -> Vec<u8> {
+    const SEP: &str = "-------FV000X-0.00-FW-build0000-000000-------2000-01-01 00:00:00-------0000000000000000AAAA---------";
+    let mut out = format!(
+        "[header]\nmagic=CC05E358\nversion=1.4\nimage_version=FV000X-0.00-FW-build0000-000000\nmodel=FV000X\ntype=full_config\nfile_number={}\nfile_split={SEP}\n[/header]\n",
+        sections.len()
+    )
+    .into_bytes();
+    for (index, section) in sections.iter().enumerate() {
+        let (encrypt, payload) = match section.get("binary").and_then(Value::as_u64) {
+            Some(len) => (
+                "yes",
+                (0..len)
+                    .map(|i| [0u8, b'\r', 0xff, b'\n', 0x80, 7][i as usize % 6] ^ (i as u8))
+                    .collect::<Vec<u8>>(),
+            ),
+            None => (
+                "no",
+                section["text"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .as_bytes()
+                    .to_vec(),
+            ),
+        };
+        let compress = if encrypt == "yes" { "gzipped" } else { "no" };
+        let name = section["name"].as_str().map_or_else(
+            || format!("/data/config/section{index}.conf.gz"),
+            str::to_string,
+        );
+        out.extend_from_slice(format!("[file]\nname={name}\ndomain=global\ntype=config\nencrypt={encrypt}\ncompress={compress}\n{SEP}\n").as_bytes());
+        out.extend_from_slice(&payload);
+        out.extend_from_slice(format!("{SEP}\n[/file]\n").as_bytes());
+    }
+    out
 }
 
 fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
@@ -185,6 +348,77 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
         }
         "open" => {
             crate::document_controller::open_path(mtm, &work_path(step)?)?;
+        }
+        "generate_backup" => {
+            let bytes = synthetic_backup(step["sections"].as_array().ok_or("needs sections")?);
+            let file = step["file"].as_str().unwrap_or_default().to_string();
+            std::fs::write(work_path(step)?, &bytes).map_err(|e| e.to_string())?;
+            RUNNER.with(|r| {
+                r.borrow_mut()
+                    .as_mut()
+                    .map(|r| r.generated.insert(file, bytes))
+            });
+        }
+        "text" => {
+            let view = current(mtm)?.view.clone();
+            let text = NSString::from_str(step["text"].as_str().unwrap_or_default());
+            let _: () = unsafe {
+                msg_send![&*view, insertText: &*text, replacementRange: NSRange::new(usize::MAX >> 1, 0)]
+            };
+        }
+        "mark" => {
+            let view = current(mtm)?.view.clone();
+            let text = NSString::from_str(step["text"].as_str().unwrap_or_default());
+            let none = NSRange::new(usize::MAX >> 1, 0);
+            let _: () = unsafe {
+                msg_send![&*view, setMarkedText: &*text, selectedRange: NSRange::new(0, 0), replacementRange: none]
+            };
+        }
+        "key" => key(mtm, step)?,
+        "send" => {
+            let view = current(mtm)?.view.clone();
+            let name = step["selector"].as_str().ok_or("send needs selector")?;
+            let selector = objc2::runtime::Sel::register(
+                &std::ffi::CString::new(name).map_err(|e| e.to_string())?,
+            );
+            if !unsafe { view.tryToPerform_with(selector, None) } {
+                return Err(format!("nothing handled {name}"));
+            }
+        }
+        "click" | "drag" => {
+            let tab = current(mtm)?;
+            let line = step["line"].as_u64().unwrap_or(0) as usize;
+            let column = step["column"].as_u64().unwrap_or(0) as usize;
+            let offset = {
+                let doc = tab.doc.borrow();
+                let start = doc.doc.buffer().rope().line_to_char(line);
+                start + crate::layout::display_line(&doc, line).char_at_column(column)
+            };
+            let mods = modifiers(step);
+            if kind == "click" {
+                let count = step["count"].as_u64().unwrap_or(1) as usize;
+                let anchor = crate::input::click(&tab, offset, line, column, mods, count);
+                tab.view.ivars().drag.set(Some(anchor));
+            } else {
+                let anchor = tab.view.ivars().drag.get().ok_or("drag without click")?;
+                crate::input::drag(&tab, anchor, offset, line, column);
+            }
+        }
+        "set_clipboard" => {
+            crate::input::set_clipboard_text(step["text"].as_str().unwrap_or_default())
+        }
+        "save_clipboard" => {
+            let text = crate::input::clipboard_text();
+            RUNNER.with(|r| r.borrow_mut().as_mut().map(|r| r.saved_clipboard = text));
+        }
+        "restore_clipboard" => {
+            if let Some(text) = RUNNER.with(|r| {
+                r.borrow_mut()
+                    .as_mut()
+                    .and_then(|r| r.saved_clipboard.take())
+            }) {
+                crate::input::set_clipboard_text(&text);
+            }
         }
         "scroll" => {
             let tab = current(mtm)?;

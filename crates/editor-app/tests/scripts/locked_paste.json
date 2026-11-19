@@ -1,0 +1,12 @@
+{
+  "steps": [
+    { "type": "generate_backup", "file": "b.conf", "sections": [ { "text": "config system global\nend\n" }, { "binary": 64 } ] },
+    { "type": "open", "file": "b.conf" },
+    { "type": "send", "selector": "selectAll:" },
+    { "type": "send", "selector": "deleteBackward:" },
+    { "type": "assert", "what": "notice", "contains": "protected" },
+    { "type": "assert", "what": "dirty", "equals": false },
+    { "type": "assert", "what": "file_unchanged", "file": "b.conf", "equals": true },
+    { "type": "quit" }
+  ]
+}

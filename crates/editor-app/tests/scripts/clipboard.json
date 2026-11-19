@@ -1,0 +1,65 @@
+{
+  "steps": [
+    {
+      "type": "save_clipboard"
+    },
+    {
+      "type": "generate",
+      "file": "crlf.txt",
+      "pattern": "one\r\ntwo",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "crlf.txt"
+    },
+    {
+      "type": "key",
+      "key": "down",
+      "mods": [
+        "cmd"
+      ]
+    },
+    {
+      "type": "set_clipboard",
+      "text": "a\nb\rc"
+    },
+    {
+      "type": "send",
+      "selector": "paste:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "one\r\ntwoa\r\nb\r\nc"
+    },
+    {
+      "type": "send",
+      "selector": "selectAll:"
+    },
+    {
+      "type": "send",
+      "selector": "copy:"
+    },
+    {
+      "type": "assert",
+      "what": "clipboard",
+      "equals": "one\r\ntwoa\r\nb\r\nc"
+    },
+    {
+      "type": "send",
+      "selector": "cut:"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": ""
+    },
+    {
+      "type": "restore_clipboard"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

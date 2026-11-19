@@ -20,6 +20,7 @@ pub struct Tab {
     pub scroll: Retained<NSScrollView>,
     pub opened_at: Cell<Option<Instant>>,
     pub first_paint_ms: Cell<Option<f64>>,
+    pub notice: RefCell<Option<String>>,
 }
 
 pub struct App {

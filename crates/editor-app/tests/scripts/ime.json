@@ -1,0 +1,16 @@
+{
+  "steps": [
+    { "type": "text", "text": "a" },
+    { "type": "mark", "text": "ni" },
+    { "type": "assert", "what": "marked", "equals": "ni" },
+    { "type": "assert", "what": "text", "equals": "a" },
+    { "type": "render", "name": "ime_marked" },
+    { "type": "mark", "text": "にほ" },
+    { "type": "text", "text": "日本" },
+    { "type": "assert", "what": "marked", "equals": null },
+    { "type": "assert", "what": "text", "equals": "a日本" },
+    { "type": "send", "selector": "undo:" },
+    { "type": "assert", "what": "text", "equals": "" },
+    { "type": "quit" }
+  ]
+}

@@ -64,6 +64,7 @@ pub fn open_tab(mtm: MainThreadMarker, doc: EditorDoc) -> Rc<Tab> {
         scroll,
         opened_at: Cell::new(None),
         first_paint_ms: Cell::new(None),
+        notice: RefCell::new(None),
     });
     let front = NSApplication::sharedApplication(mtm).keyWindow();
     with_app(|a| a.tabs.push(tab.clone()));

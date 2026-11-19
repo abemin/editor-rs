@@ -2,12 +2,17 @@
 
 mod app;
 mod app_delegate;
+mod bookmark_actions;
 mod config;
 mod doc_model;
 mod document_controller;
+mod find_panel;
 mod highlight;
+mod input;
 mod layout;
 mod menus;
+mod session_driver;
+mod status_bar;
 mod test_mode;
 mod text_view;
 mod theme;

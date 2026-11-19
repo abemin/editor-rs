@@ -9,3 +9,6 @@ use std::ops::Range;
 pub fn spans(_doc: &EditorDoc, _line: usize, _display: &DisplayLine) -> Vec<(Range<usize>, Role)> {
     Vec::new()
 }
+
+/// Called after the text changes.
+pub fn note_change(_tab: &crate::app::Tab) {}

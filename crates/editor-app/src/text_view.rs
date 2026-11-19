@@ -59,7 +59,7 @@ pub fn metrics() -> Metrics {
 
 pub fn gutter_width(lines: usize, m: &Metrics) -> f64 {
     let digits = lines.max(1).ilog10() as f64 + 1.0;
-    (digits.max(3.0) * m.advance + GUTTER_PADDING).ceil()
+    (digits.max(3.0) * m.advance + GUTTER_PADDING + FOLD_MARKER_WIDTH).ceil()
 }
 
 pub fn text_left(lines: usize, m: &Metrics) -> f64 {
@@ -223,6 +223,14 @@ define_class!(
     impl TextView {
         #[unsafe(method(keyDown:))]
         fn key_down(&self, event: &NSEvent) {
+            let function_key = event.charactersIgnoringModifiers().is_some_and(|c| {
+                c.to_string().chars().next().is_some_and(|ch| ('\u{F704}'..='\u{F726}').contains(&ch))
+            });
+            if function_key
+                && objc2_app_kit::NSApplication::sharedApplication(self.mtm()).mainMenu().is_some_and(|m| m.performKeyEquivalent(event))
+            {
+                return;
+            }
             self.interpretKeyEvents(&NSArray::from_slice(&[event]));
         }
 
@@ -235,9 +243,12 @@ define_class!(
             let point = self.convertPoint_fromView(event.locationInWindow(), None);
             let m = metrics();
             let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
-            if point.x < self.visibleRect().origin.x + gutter_width(lines, &m) {
-                let line = (point.y / m.line_height).floor().max(0.0) as usize;
-                crate::bookmark_actions::toggle_line(&tab, line);
+            let gutter_left = self.visibleRect().origin.x;
+            let gutter = gutter_width(lines, &m);
+            if point.x < gutter_left + gutter {
+                let row = (point.y / m.line_height).floor().max(0.0) as usize;
+                let line = tab.folds.borrow().line_of_row(row);
+                crate::input::gutter_click(&tab, line, point.x > gutter_left + gutter - FOLD_MARKER_WIDTH);
                 return;
             }
             let flags = event.modifierFlags();
@@ -397,12 +408,10 @@ impl TextView {
 fn line_colors(
     line: &DisplayLine,
     theme: &Theme,
-    extra: &[(std::ops::Range<usize>, Role)],
+    roles: &[(std::ops::Range<usize>, Role)],
 ) -> Vec<(std::ops::Range<usize>, (f64, f64, f64))> {
-    let mut out: Vec<_> = line
-        .roles
+    let mut out: Vec<_> = roles
         .iter()
-        .chain(extra)
         .filter_map(|(r, role)| Some((r.clone(), theme.role(*role)?)))
         .collect();
     if let Some(framing) = theme.role(Role::Framing) {
@@ -411,43 +420,86 @@ fn line_colors(
     out
 }
 
+/// Rows visible in `rect`, as (row, line) pairs.
+fn rows_in(tab: &Tab, rect: NSRect, lines: usize, m: &Metrics) -> Vec<(usize, usize)> {
+    let folds = tab.folds.borrow();
+    let rows = folds.visible_rows(lines);
+    let first = (rect.origin.y / m.line_height).floor().max(0.0) as usize;
+    let last = (((rect.origin.y + rect.size.height) / m.line_height).ceil() as usize)
+        .min(rows.saturating_sub(1));
+    if rows == 0 || first > last {
+        return Vec::new();
+    }
+    (first..=last)
+        .map(|row| (row, folds.line_of_row(row)))
+        .collect()
+}
+
 fn draw_text(view: &TextView, tab: &Tab, dirty: NSRect) -> DrawStats {
+    let structure = crate::highlight::structure(tab);
     let doc = tab.doc.borrow();
     let theme = theme::for_view(view);
     let m = metrics();
     let font = font();
     fill(dirty, theme.background);
-    let rope = doc.doc.buffer().rope();
-    let lines = rope.len_lines();
+    let lines = doc.doc.buffer().rope().len_lines();
     let left = text_left(lines, &m);
-    let first = (dirty.origin.y / m.line_height).floor().max(0.0) as usize;
-    let last = (((dirty.origin.y + dirty.size.height) / m.line_height).ceil() as usize)
-        .min(lines.saturating_sub(1));
     let first_column = (((dirty.origin.x - left) / m.advance).floor().max(0.0) as usize)
         .saturating_sub(COLUMN_MARGIN);
     let last_column = (((dirty.origin.x + dirty.size.width - left) / m.advance)
         .ceil()
         .max(0.0) as usize)
         + COLUMN_MARGIN;
-
     let primary = doc.doc.selections().primary();
     let (caret_line, _) = doc.doc.line_col(primary.head);
+    let matching = structure
+        .as_ref()
+        .and_then(|s| editor_syntax::matching_block_line(s, caret_line));
+    let issues: Vec<usize> = structure
+        .as_ref()
+        .map(|s| s.issues.iter().map(|i| i.line).collect())
+        .unwrap_or_default();
     let mut stats = DrawStats::default();
-    if lines == 0 || first > last {
-        return stats;
-    }
-    for line in first..=last {
-        let y = line as f64 * m.line_height;
-        if line == caret_line {
+    let rows = rows_in(tab, dirty, lines, &m);
+    let (first_line, last_line) = (
+        rows.first().map_or(0, |r| r.1),
+        rows.last().map_or(0, |r| r.1),
+    );
+    for &(row, line) in &rows {
+        let y = row as f64 * m.line_height;
+        let band = |rgb| {
             fill(
                 NSRect::new(
                     NSPoint::new(dirty.origin.x, y),
                     NSSize::new(dirty.size.width, m.line_height),
                 ),
-                theme.current_line,
-            );
+                rgb,
+            )
+        };
+        if line == caret_line {
+            band(theme.current_line);
         }
         let display = display_line(&doc, line);
+        if matching.is_some_and(|other| other == line) || (matching.is_some() && line == caret_line)
+        {
+            let width = display
+                .chars
+                .iter()
+                .take_while(|c| c.is_whitespace())
+                .count();
+            let word = display.chars[width..]
+                .iter()
+                .take_while(|c| !c.is_whitespace())
+                .count()
+                .max(1);
+            fill(
+                NSRect::new(
+                    NSPoint::new(left + width as f64 * m.advance, y + 1.0),
+                    NSSize::new(word as f64 * m.advance, m.line_height - 2.0),
+                ),
+                theme.find_match,
+            );
+        }
         for locked in &display.locked {
             let x = left + locked.start as f64 * m.advance;
             fill(
@@ -458,40 +510,65 @@ fn draw_text(view: &TextView, tab: &Tab, dirty: NSRect) -> DrawStats {
                 theme.locked_background,
             );
         }
-        draw_selections(&doc, line, &display, theme, &m, left, y);
-        let end = display.width().min(last_column);
-        if first_column >= end {
-            continue;
+        draw_selections(tab, &doc, line, &display, theme, &m, left, y);
+        if issues.contains(&line) {
+            let indent = display
+                .chars
+                .iter()
+                .take_while(|c| c.is_whitespace())
+                .count();
+            let word = display.chars[indent..]
+                .iter()
+                .take_while(|c| !c.is_whitespace())
+                .count()
+                .max(1);
+            fill(
+                NSRect::new(
+                    NSPoint::new(left + indent as f64 * m.advance, y + m.line_height - 2.0),
+                    NSSize::new(word as f64 * m.advance, 1.5),
+                ),
+                theme.issue,
+            );
         }
-        let visible: String = display.chars[first_column..end].iter().collect();
-        let colors: Vec<_> = line_colors(
-            &display,
-            theme,
-            &crate::highlight::spans(&doc, line, &display),
-        )
-        .into_iter()
-        .filter_map(|(r, c)| {
-            let s = r.start.max(first_column);
-            let e = r.end.min(end);
-            (s < e).then(|| (s - first_column..e - first_column, c))
-        })
-        .collect();
-        let text = attributed(&visible, &font, theme.text, &colors);
-        text.drawAtPoint(NSPoint::new(
-            left + first_column as f64 * m.advance,
-            y + m.baseline_pad,
-        ));
-        stats.lines += 1;
-        stats.max_columns = stats.max_columns.max(end - first_column);
+        let end = display.width().min(last_column);
+        if first_column < end {
+            let visible: String = display.chars[first_column..end].iter().collect();
+            let roles = crate::highlight::spans(tab, &doc, line, &display);
+            let colors: Vec<_> = line_colors(&display, theme, &roles)
+                .into_iter()
+                .filter_map(|(r, c)| {
+                    let s = r.start.max(first_column);
+                    let e = r.end.min(end);
+                    (s < e).then(|| (s - first_column..e - first_column, c))
+                })
+                .collect();
+            let text = attributed(&visible, &font, theme.text, &colors);
+            text.drawAtPoint(NSPoint::new(
+                left + first_column as f64 * m.advance,
+                y + m.baseline_pad,
+            ));
+            stats.lines += 1;
+            stats.max_columns = stats.max_columns.max(end - first_column);
+        }
+        if tab.folds.borrow().starts().any(|s| s == line) {
+            let x = left + display.width() as f64 * m.advance + m.advance;
+            let marker = attributed(" \u{22ef} ", &font, theme.gutter_text, &[]);
+            fill(
+                NSRect::new(
+                    NSPoint::new(x, y + 2.0),
+                    NSSize::new(3.0 * m.advance, m.line_height - 4.0),
+                ),
+                theme.locked_background,
+            );
+            marker.drawAtPoint(NSPoint::new(x, y + m.baseline_pad));
+        }
     }
-    draw_carets(&doc, first, last, theme, &m, left);
+    draw_carets(tab, &doc, first_line, last_line, theme, &m, left);
     if let Some(marked) = view.ivars().marked.borrow().as_ref() {
         let (line, column) = doc.doc.line_col(doc.doc.selections().primary().head);
         let column = display_line(&doc, line).column_of(column);
-        let origin = NSPoint::new(
-            left + column as f64 * m.advance,
-            line as f64 * m.line_height,
-        );
+        let row = tab.folds.borrow().row_of_line(line);
+        let origin = NSPoint::new(left + column as f64 * m.advance, row as f64 * m.line_height);
         let width = marked.chars().count() as f64 * m.advance;
         fill(
             NSRect::new(origin, NSSize::new(width, m.line_height)),
@@ -510,7 +587,9 @@ fn draw_text(view: &TextView, tab: &Tab, dirty: NSRect) -> DrawStats {
     stats
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_selections(
+    tab: &Tab,
     doc: &crate::doc_model::EditorDoc,
     line: usize,
     display: &DisplayLine,
@@ -519,6 +598,7 @@ fn draw_selections(
     left: f64,
     y: f64,
 ) {
+    let _ = tab;
     let rope = doc.doc.buffer().rope();
     let line_start = rope.line_to_char(line);
     let line_end = doc.doc.line_text_end(line);
@@ -550,6 +630,7 @@ fn draw_selections(
 }
 
 fn draw_carets(
+    tab: &Tab,
     doc: &crate::doc_model::EditorDoc,
     first: usize,
     last: usize,
@@ -557,32 +638,32 @@ fn draw_carets(
     m: &Metrics,
     left: f64,
 ) {
+    let folds = tab.folds.borrow();
     for s in doc.doc.selections().ranges() {
         let (line, column) = doc.doc.line_col(s.head);
-        if line < first || line > last {
+        if line < first || line > last || folds.is_hidden(line) {
             continue;
         }
         let display = display_line(doc, line);
         let x = left + display.column_of(column) as f64 * m.advance;
+        let y = folds.row_of_line(line) as f64 * m.line_height;
         fill(
-            NSRect::new(
-                NSPoint::new(x - 0.5, line as f64 * m.line_height),
-                NSSize::new(2.0, m.line_height),
-            ),
+            NSRect::new(NSPoint::new(x - 0.5, y), NSSize::new(2.0, m.line_height)),
             theme.caret,
         );
     }
 }
 
-/// Resizes the text and gutter views to fit the document.
+/// Resizes the text view to fit the document.
 pub fn update_frames(tab: &Tab) {
     let m = metrics();
     let (lines, columns) = {
         let doc = tab.doc.borrow();
         (doc.doc.buffer().rope().len_lines(), doc.max_columns)
     };
+    let rows = tab.folds.borrow().visible_rows(lines);
     let visible = tab.scroll.contentSize();
-    let height = (lines as f64 + BOTTOM_LINES) * m.line_height;
+    let height = (rows as f64 + BOTTOM_LINES) * m.line_height;
     let width = text_left(lines, &m) + (columns as f64 + 4.0) * m.advance;
     tab.view.setFrameSize(NSSize::new(
         width.max(visible.width),
@@ -595,10 +676,11 @@ pub fn update_frames(tab: &Tab) {
 pub fn rect_for(tab: &Tab, line: usize, column: usize) -> NSRect {
     let m = metrics();
     let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+    let row = tab.folds.borrow().row_of_line(line);
     NSRect::new(
         NSPoint::new(
             text_left(lines, &m) + column as f64 * m.advance,
-            line as f64 * m.line_height,
+            row as f64 * m.line_height,
         ),
         NSSize::new(m.advance, m.line_height),
     )
@@ -612,7 +694,11 @@ pub fn scroll_to(tab: &Rc<Tab>, line: usize, column: usize) {
     tab.view.scrollRectToVisible(rect);
 }
 
+/// Width of the fold marker area at the right of the gutter.
+pub const FOLD_MARKER_WIDTH: f64 = 14.0;
+
 fn draw_gutter(view: &TextView, tab: &Tab, dirty: NSRect) {
+    let structure = crate::highlight::structure(tab);
     let doc = tab.doc.borrow();
     let theme = theme::for_view(view);
     let m = metrics();
@@ -631,15 +717,20 @@ fn draw_gutter(view: &TextView, tab: &Tab, dirty: NSRect) {
         ),
         theme.gutter_background,
     );
-    let first = (dirty.origin.y / m.line_height).floor().max(0.0) as usize;
-    let last = (((dirty.origin.y + dirty.size.height) / m.line_height).ceil() as usize)
-        .min(lines.saturating_sub(1));
     let bookmarks = doc.doc.bookmarked_lines();
-    for line in first..=last.max(first) {
-        if line >= lines {
-            break;
-        }
-        let y = line as f64 * m.line_height;
+    let fold_starts: Vec<usize> = structure
+        .as_ref()
+        .map(|s| {
+            s.folds
+                .iter()
+                .filter(|f| f.end_line > f.start_line)
+                .map(|f| f.start_line)
+                .collect()
+        })
+        .unwrap_or_default();
+    let folded: Vec<usize> = tab.folds.borrow().starts().collect();
+    for (row, line) in rows_in(tab, dirty, lines, &m) {
+        let y = row as f64 * m.line_height;
         if bookmarks.binary_search(&line).is_ok() {
             let size = (m.line_height * 0.5).min(9.0);
             color(theme.bookmark).setFill();
@@ -650,8 +741,19 @@ fn draw_gutter(view: &TextView, tab: &Tab, dirty: NSRect) {
             .fill();
         }
         let number = (line + 1).to_string();
-        let x = left + width - 6.0 - number.len() as f64 * m.advance;
+        let x = left + width - FOLD_MARKER_WIDTH - 4.0 - number.len() as f64 * m.advance;
         attributed(&number, &font, theme.gutter_text, &[])
             .drawAtPoint(NSPoint::new(x, y + m.baseline_pad));
+        if fold_starts.contains(&line) {
+            let glyph = if folded.contains(&line) {
+                "\u{25b8}"
+            } else {
+                "\u{25be}"
+            };
+            attributed(glyph, &font, theme.gutter_text, &[]).drawAtPoint(NSPoint::new(
+                left + width - FOLD_MARKER_WIDTH + 1.0,
+                y + m.baseline_pad,
+            ));
+        }
     }
 }

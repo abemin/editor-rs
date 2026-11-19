@@ -1,0 +1,33 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "bad.conf",
+      "pattern": "config system global\n  edit 1\n    set a 1\nend\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "bad.conf"
+    },
+    {
+      "type": "assert",
+      "what": "issue_lines",
+      "equals": [
+        1
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "config system global\n  edit 1\n    set a 1\nend\n"
+    },
+    {
+      "type": "render",
+      "name": "cli_missing_end"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

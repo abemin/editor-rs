@@ -1,0 +1,62 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "cli.conf",
+      "pattern": "#config-version=FV-TEST\nconfig system global\n  set hostname \"lab-1\"\n  set status enable\n  set admin disable\n  set port 443\n  set ip 192.0.2.10/24\n  set password ENC c2VjcmV0\n  set action alert_deny\n  set severity High\n  set made-up-option value\nend\nconfig waf policy\n  edit \"policy1\"\n    set certificate \"-----BEGIN CERTIFICATE-----\nMIIBsynthetic\n-----END CERTIFICATE-----\"\n  next\nend\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "cli.conf"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 1,
+      "column": 0,
+      "equals": "Keyword"
+    },
+    {
+      "type": "set_language",
+      "name": "Plain Text"
+    },
+    {
+      "type": "assert",
+      "what": "language",
+      "equals": "Plain Text"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 1,
+      "column": 0,
+      "equals": "Plain"
+    },
+    {
+      "type": "generate",
+      "file": "x.json",
+      "pattern": "{\"a\": 12}\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "x.json"
+    },
+    {
+      "type": "assert",
+      "what": "language",
+      "equals": "JSON"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 0,
+      "column": 6,
+      "equals": "Number"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

@@ -1,0 +1,164 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "cli.conf",
+      "pattern": "#config-version=FV-TEST\nconfig system global\n  set hostname \"lab-1\"\n  set status enable\n  set admin disable\n  set port 443\n  set ip 192.0.2.10/24\n  set password ENC c2VjcmV0\n  set action alert_deny\n  set severity High\n  set made-up-option value\nend\nconfig waf policy\n  edit \"policy1\"\n    set certificate \"-----BEGIN CERTIFICATE-----\nMIIBsynthetic\n-----END CERTIFICATE-----\"\n  next\nend\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "cli.conf"
+    },
+    {
+      "type": "assert",
+      "what": "language",
+      "equals": "FortiWeb CLI"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 0,
+      "column": 0,
+      "equals": "Comment"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 1,
+      "column": 0,
+      "equals": "Keyword"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 1,
+      "column": 7,
+      "equals": "SectionName"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 2,
+      "column": 2,
+      "equals": "Command"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 2,
+      "column": 6,
+      "equals": "Property"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 2,
+      "column": 15,
+      "equals": "String"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 3,
+      "column": 13,
+      "equals": "On"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 4,
+      "column": 12,
+      "equals": "Off"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 5,
+      "column": 11,
+      "equals": "Number"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 6,
+      "column": 9,
+      "equals": "Network"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 7,
+      "column": 15,
+      "equals": "SecretTag"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 7,
+      "column": 19,
+      "equals": "SecretValue"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 8,
+      "column": 13,
+      "equals": "Action"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 9,
+      "column": 15,
+      "equals": "SeverityHigh"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 10,
+      "column": 6,
+      "equals": "Property"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 13,
+      "column": 7,
+      "equals": "EntityName"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 15,
+      "column": 0,
+      "equals": "CertBlock"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 17,
+      "column": 2,
+      "equals": "Keyword"
+    },
+    {
+      "type": "render",
+      "name": "cli_colors_light"
+    },
+    {
+      "type": "appearance",
+      "mode": "dark"
+    },
+    {
+      "type": "render",
+      "name": "cli_colors_dark"
+    },
+    {
+      "type": "appearance",
+      "mode": "light"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

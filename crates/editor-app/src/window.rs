@@ -95,7 +95,10 @@ pub fn open_tab_with_id(mtm: MainThreadMarker, doc: EditorDoc, id: Option<String
         find: RefCell::new(None),
         search_cancel: RefCell::new(None),
         search_cache: RefCell::new(None),
+        highlight: RefCell::new(Default::default()),
+        folds: RefCell::new(Default::default()),
     });
+    crate::highlight::reset(&tab);
     let delegate = with_app(|a| a.window_delegate.clone());
     if let Some(delegate) = delegate {
         window.setDelegate(Some(objc2::runtime::ProtocolObject::from_ref(&*delegate)));

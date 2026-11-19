@@ -62,7 +62,6 @@ pub fn open_path(mtm: MainThreadMarker, path: &Path) -> Result<Rc<Tab>, String> 
         close_now(&old);
     }
     add_recent(path);
-    crate::highlight::note_change(&tab);
     crate::session_driver::note_structure();
     Ok(tab)
 }
@@ -198,6 +197,8 @@ pub fn reload(mtm: MainThreadMarker, tab: &Rc<Tab>) {
                 .doc
                 .set_selections(editor_core::SelectionSet::single(caret.min(len)));
             *tab.doc.borrow_mut() = fresh;
+            tab.folds.borrow_mut().clear();
+            crate::highlight::reset(tab);
             tab.window.setDocumentEdited(false);
             crate::input::after_change(tab, true);
             tab.window.setDocumentEdited(false);

@@ -595,6 +595,11 @@ impl Document {
         true
     }
 
+    /// Edits not yet taken by `take_change_log`, oldest first.
+    pub fn pending_changes(&self) -> &[EditBatch] {
+        &self.change_log
+    }
+
     /// Edits made since the last call, oldest first.
     pub fn take_change_log(&mut self) -> Vec<EditBatch> {
         std::mem::take(&mut self.change_log)
@@ -785,6 +790,15 @@ mod tests {
         assert_eq!(d.selections().primary().head, 4);
         d.move_cursors(Motion::DocEnd, false);
         assert_eq!(d.selections().primary().head, 13);
+    }
+
+    #[test]
+    fn pending_changes_show_unread_edits() {
+        let mut d = doc("", Eol::Lf);
+        d.insert_text("a").unwrap();
+        assert_eq!(d.pending_changes().len(), 1);
+        d.take_change_log();
+        assert!(d.pending_changes().is_empty());
     }
 
     #[test]

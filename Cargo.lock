@@ -191,6 +191,7 @@ dependencies = [
  "editor-formats",
  "editor-search",
  "editor-syntax",
+ "encoding_rs",
  "libc",
  "objc2",
  "objc2-app-kit",

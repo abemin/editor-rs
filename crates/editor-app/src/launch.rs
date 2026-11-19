@@ -224,6 +224,6 @@ fn restore_tab(mtm: MainThreadMarker, entry: RestoredTab) -> Option<Rc<Tab>> {
     *tab.notice.borrow_mut() = notice;
     crate::status_bar::refresh(&tab);
     crate::text_view::scroll_to(&tab, record.scroll_line, 0);
-    crate::highlight::note_change(&tab);
+    crate::highlight::reset(&tab);
     Some(tab)
 }

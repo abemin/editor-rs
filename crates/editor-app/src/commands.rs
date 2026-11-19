@@ -52,5 +52,14 @@ pub fn is_enabled(mtm: MainThreadMarker, action: MenuAction) -> bool {
 }
 
 pub fn perform_with_value(mtm: MainThreadMarker, action: MenuAction, value: &str) {
-    let _ = (mtm, action, value);
+    let Some(tab) = crate::window::current_tab(mtm) else {
+        return;
+    };
+    match action {
+        MenuAction::SetLanguage => crate::view_actions::set_language(&tab, value),
+        MenuAction::ReopenWithEncoding => {
+            crate::view_actions::reopen_with_encoding(mtm, &tab, value)
+        }
+        _ => {}
+    }
 }

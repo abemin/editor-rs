@@ -30,6 +30,8 @@ pub struct Tab {
     pub cloned: Cell<bool>,
     pub find: RefCell<Option<crate::find_panel::FindBar>>,
     pub search_cancel: RefCell<Option<std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    pub highlight: RefCell<crate::highlight::Highlighting>,
+    pub folds: RefCell<crate::folds::Folds>,
     pub search_cache: RefCell<Option<(u64, std::sync::Arc<editor_search::SearchText>)>>,
 }
 

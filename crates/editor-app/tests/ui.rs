@@ -162,4 +162,12 @@ scripts!(
     find_large_cancel,
     find_backup_locked,
     bookmark_all,
+    cli_colors,
+    cli_fold,
+    cli_match_block,
+    cli_missing_end,
+    language_override,
+    bookmark_gutter,
+    bookmark_menu,
+    backup_colors,
 );

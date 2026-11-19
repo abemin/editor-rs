@@ -330,7 +330,45 @@ pub fn find_item(mtm: MainThreadMarker, action: MenuAction) -> Option<Retained<N
 
 /// Fills the Open Recent menu each time it opens.
 pub fn update_dynamic_menu(mtm: MainThreadMarker, menu: &NSMenu, target: &AnyObject) {
-    if menu.title().to_string() != "Open Recent" {
+    let title = menu.title().to_string();
+    if title == "Language" || title == "Reopen with Encoding" {
+        menu.removeAllItems();
+        let tab = crate::window::current_tab(mtm);
+        let (action, names, current): (MenuAction, Vec<String>, Option<String>) =
+            if title == "Language" {
+                (
+                    MenuAction::SetLanguage,
+                    editor_syntax::Language::ALL
+                        .iter()
+                        .map(|l| l.name().to_string())
+                        .collect(),
+                    tab.map(|t| t.doc.borrow().language.name().to_string()),
+                )
+            } else {
+                (
+                    MenuAction::ReopenWithEncoding,
+                    crate::view_actions::REOPEN_ENCODINGS
+                        .iter()
+                        .map(|e| e.to_string())
+                        .collect(),
+                    tab.map(|t| crate::status_bar::encoding_name(&t.doc.borrow().encoding)),
+                )
+            };
+        for name in names {
+            let item = make(mtm, &name, Some(sel!(menuAction:)), "", NONE);
+            unsafe {
+                item.setTarget(Some(target));
+                item.setRepresentedObject(Some(&NSString::from_str(&name)));
+            }
+            item.setTag(action as isize);
+            if current.as_deref() == Some(name.as_str()) {
+                item.setState(objc2_app_kit::NSControlStateValueOn);
+            }
+            menu.addItem(&item);
+        }
+        return;
+    }
+    if title != "Open Recent" {
         return;
     }
     menu.removeAllItems();

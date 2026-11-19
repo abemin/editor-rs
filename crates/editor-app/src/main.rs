@@ -8,6 +8,7 @@ mod config;
 mod doc_model;
 mod document_controller;
 mod find_panel;
+mod folds;
 mod highlight;
 mod input;
 mod launch;

@@ -1,0 +1,55 @@
+{
+  "steps": [
+    {
+      "type": "generate_backup",
+      "file": "b.conf",
+      "sections": [
+        {
+          "text": "config system global\n  set status enable\nend\n"
+        },
+        {
+          "binary": 64
+        }
+      ]
+    },
+    {
+      "type": "open",
+      "file": "b.conf"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 0,
+      "column": 0,
+      "equals": "Framing"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 15,
+      "column": 0,
+      "equals": "Framing"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 16,
+      "column": 0,
+      "equals": "Keyword"
+    },
+    {
+      "type": "assert",
+      "what": "role_at",
+      "line": 17,
+      "column": 13,
+      "equals": "On"
+    },
+    {
+      "type": "render",
+      "name": "backup_colors"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

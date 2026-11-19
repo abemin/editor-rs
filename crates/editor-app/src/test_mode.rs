@@ -134,6 +134,52 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         "clipboard" => json!(crate::input::clipboard_text()),
         "bookmarks" => json!(current(mtm)?.doc.borrow().doc.bookmarked_lines()),
         "status" => json!(current(mtm)?.status.stringValue().to_string()),
+        "language" => json!(current(mtm)?.doc.borrow().language.name()),
+        "role_at" => {
+            let tab = current(mtm)?;
+            let role = crate::highlight::role_at(
+                &tab,
+                step["line"].as_u64().unwrap_or(0) as usize,
+                step["column"].as_u64().unwrap_or(0) as usize,
+            );
+            json!(format!("{role:?}"))
+        }
+        "visible_rows" => {
+            let tab = current(mtm)?;
+            let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+            json!(tab.folds.borrow().visible_rows(lines))
+        }
+        "row_line" => json!(
+            current(mtm)?
+                .folds
+                .borrow()
+                .line_of_row(step["row"].as_u64().unwrap_or(0) as usize)
+        ),
+        "matching_line" => {
+            let tab = current(mtm)?;
+            let line = tab
+                .doc
+                .borrow()
+                .doc
+                .line_col(tab.doc.borrow().doc.selections().primary().head)
+                .0;
+            json!(
+                crate::highlight::structure(&tab)
+                    .and_then(|s| editor_syntax::matching_block_line(&s, line))
+            )
+        }
+        "issue_lines" => json!(
+            crate::highlight::structure(&*current(mtm)?).map(|s| s
+                .issues
+                .iter()
+                .map(|i| i.line)
+                .collect::<Vec<_>>())
+        ),
+        "caret_line" => {
+            let tab = current(mtm)?;
+            let doc = tab.doc.borrow();
+            json!(doc.doc.line_col(doc.doc.selections().primary().head).0)
+        }
         "find_status" => json!(crate::find_panel::status_text(&*current(mtm)?)),
         "search_running" => json!(crate::find_panel::is_running(&*current(mtm)?)),
         "tab_texts" => json!(
@@ -523,6 +569,28 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 std::thread::sleep(std::time::Duration::from_millis(50));
             };
             SECOND_EXIT.with(|c| c.set(code));
+        }
+        "appearance" => {
+            let name = if step["mode"] == "dark" {
+                unsafe { objc2_app_kit::NSAppearanceNameDarkAqua }
+            } else {
+                unsafe { objc2_app_kit::NSAppearanceNameAqua }
+            };
+            let appearance = objc2_app_kit::NSAppearance::appearanceNamed(name);
+            NSApplication::sharedApplication(mtm).setAppearance(appearance.as_deref());
+            current(mtm)?.view.setNeedsDisplay(true);
+        }
+        "set_language" => crate::view_actions::set_language(
+            &current(mtm)?,
+            step["name"].as_str().unwrap_or_default(),
+        ),
+        "gutter_click" => {
+            let tab = current(mtm)?;
+            crate::input::gutter_click(
+                &tab,
+                step["line"].as_u64().unwrap_or(0) as usize,
+                step["marker"].as_bool().unwrap_or(false),
+            );
         }
         "find" => {
             let tab = current(mtm)?;

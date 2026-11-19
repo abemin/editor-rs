@@ -1,0 +1,188 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "b.txt",
+      "pattern": "config a\n  set ip 1\nend\n  set ip 2\nfoo\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "b.txt"
+    },
+    {
+      "type": "save_clipboard"
+    },
+    {
+      "type": "click",
+      "line": 1,
+      "column": 0
+    },
+    {
+      "type": "key",
+      "key": "f2",
+      "mods": [
+        "cmd"
+      ]
+    },
+    {
+      "type": "click",
+      "line": 3,
+      "column": 0
+    },
+    {
+      "type": "menu",
+      "action": "ToggleBookmark"
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": [
+        1,
+        3
+      ]
+    },
+    {
+      "type": "click",
+      "line": 0,
+      "column": 0
+    },
+    {
+      "type": "key",
+      "key": "f2"
+    },
+    {
+      "type": "assert",
+      "what": "caret_line",
+      "equals": 1
+    },
+    {
+      "type": "key",
+      "key": "f2"
+    },
+    {
+      "type": "assert",
+      "what": "caret_line",
+      "equals": 3
+    },
+    {
+      "type": "key",
+      "key": "f2",
+      "mods": [
+        "shift"
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "caret_line",
+      "equals": 1
+    },
+    {
+      "type": "menu",
+      "action": "CopyBookmarkedLines"
+    },
+    {
+      "type": "assert",
+      "what": "clipboard",
+      "equals": "  set ip 1\n  set ip 2\n"
+    },
+    {
+      "type": "menu",
+      "action": "InverseBookmarks"
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": [
+        0,
+        2,
+        4,
+        5
+      ]
+    },
+    {
+      "type": "menu",
+      "action": "InverseBookmarks"
+    },
+    {
+      "type": "set_clipboard",
+      "text": "X"
+    },
+    {
+      "type": "menu",
+      "action": "PasteToBookmarkedLines"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "config a\nX\nend\nX\nfoo\n"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "menu",
+      "action": "RemoveUnbookmarkedLines"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "  set ip 1\n  set ip 2\n"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "menu",
+      "action": "RemoveBookmarkedLines"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "config a\nend\nfoo\n"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "menu",
+      "action": "CutBookmarkedLines"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "config a\nend\nfoo\n"
+    },
+    {
+      "type": "assert",
+      "what": "clipboard",
+      "equals": "  set ip 1\n  set ip 2\n"
+    },
+    {
+      "type": "send",
+      "selector": "undo:"
+    },
+    {
+      "type": "key",
+      "key": "f2",
+      "mods": [
+        "cmd",
+        "shift"
+      ]
+    },
+    {
+      "type": "assert",
+      "what": "bookmarks",
+      "equals": []
+    },
+    {
+      "type": "restore_clipboard"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

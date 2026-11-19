@@ -97,8 +97,12 @@ pub fn after_change(tab: &Rc<Tab>, text_changed: bool) {
         update_frames(tab);
         tab.window.setDocumentEdited(dirty);
         *tab.notice.borrow_mut() = None;
-        crate::session_driver::note_change(tab);
         crate::highlight::note_change(tab);
+        crate::session_driver::note_change(tab);
+    }
+    let unfolded = tab.folds.borrow().is_hidden(line) && tab.folds.borrow_mut().unfold_at(line);
+    if unfolded {
+        update_frames(tab);
     }
     scroll_to_caret(tab, line, column);
     tab.view.setNeedsDisplay(true);
@@ -249,7 +253,12 @@ pub fn offset_at_point(tab: &Tab, point: NSPoint) -> (usize, usize, usize) {
     let m = metrics();
     let rope = doc.doc.buffer().rope();
     let lines = rope.len_lines();
-    let line = ((point.y / m.line_height).floor().max(0.0) as usize).min(lines.saturating_sub(1));
+    let row = (point.y / m.line_height).floor().max(0.0) as usize;
+    let line = tab
+        .folds
+        .borrow()
+        .line_of_row(row)
+        .min(lines.saturating_sub(1));
     let column = ((point.x - text_left(lines, &m)) / m.advance)
         .round()
         .max(0.0) as usize;
@@ -380,13 +389,28 @@ pub fn drag(tab: &Rc<Tab>, anchor: DragAnchor, offset: usize, line: usize, colum
     after_change(tab, false);
 }
 
+/// The system clipboard, or a private one during automated tests so tests
+/// running at the same time never touch each other's or the user's clipboard.
+fn pasteboard() -> objc2::rc::Retained<NSPasteboard> {
+    if crate::app::args().test_script.is_some() {
+        let name = NSString::from_str(&format!(
+            "{}.test.{}",
+            crate::config::APP.bundle_id,
+            std::process::id()
+        ));
+        NSPasteboard::pasteboardWithName(&name)
+    } else {
+        NSPasteboard::generalPasteboard()
+    }
+}
+
 pub fn clipboard_text() -> Option<String> {
-    let pasteboard = NSPasteboard::generalPasteboard();
+    let pasteboard = pasteboard();
     unsafe { pasteboard.stringForType(NSPasteboardTypeString) }.map(|s| s.to_string())
 }
 
 pub fn set_clipboard_text(text: &str) {
-    let pasteboard = NSPasteboard::generalPasteboard();
+    let pasteboard = pasteboard();
     pasteboard.clearContents();
     unsafe { pasteboard.setString_forType(&NSString::from_str(text), NSPasteboardTypeString) };
 }
@@ -435,4 +459,19 @@ pub fn redo(tab: &Rc<Tab>) {
     } else {
         NSBeep()
     }
+}
+
+/// A click in the gutter: the fold marker folds or unfolds, elsewhere toggles a bookmark.
+pub fn gutter_click(tab: &Rc<Tab>, line: usize, on_marker: bool) {
+    if on_marker
+        && let Some(block) = crate::folds::block_at(tab, line).filter(|b| b.start_line == line)
+    {
+        let removed = tab.folds.borrow_mut().unfold_at(line);
+        if !removed {
+            tab.folds.borrow_mut().fold(block);
+        }
+        update_frames(tab);
+        return;
+    }
+    crate::bookmark_actions::toggle_line(tab, line);
 }

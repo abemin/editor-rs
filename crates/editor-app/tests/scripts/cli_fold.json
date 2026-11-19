@@ -1,0 +1,74 @@
+{
+  "steps": [
+    {
+      "type": "generate",
+      "file": "cli.conf",
+      "pattern": "#config-version=FV-TEST\nconfig system global\n  set hostname \"lab-1\"\n  set status enable\n  set admin disable\n  set port 443\n  set ip 192.0.2.10/24\n  set password ENC c2VjcmV0\n  set action alert_deny\n  set severity High\n  set made-up-option value\nend\nconfig waf policy\n  edit \"policy1\"\n    set certificate \"-----BEGIN CERTIFICATE-----\nMIIBsynthetic\n-----END CERTIFICATE-----\"\n  next\nend\n",
+      "times": 1
+    },
+    {
+      "type": "open",
+      "file": "cli.conf"
+    },
+    {
+      "type": "click",
+      "line": 13,
+      "column": 4
+    },
+    {
+      "type": "menu",
+      "action": "FoldBlock"
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "equals": 16
+    },
+    {
+      "type": "assert",
+      "what": "row_line",
+      "row": 13,
+      "equals": 13
+    },
+    {
+      "type": "assert",
+      "what": "row_line",
+      "row": 14,
+      "equals": 18
+    },
+    {
+      "type": "menu",
+      "action": "UnfoldAll"
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "equals": 20
+    },
+    {
+      "type": "menu",
+      "action": "FoldAll"
+    },
+    {
+      "type": "assert",
+      "what": "visible_rows",
+      "equals": 4
+    },
+    {
+      "type": "render",
+      "name": "cli_fold"
+    },
+    {
+      "type": "menu",
+      "action": "UnfoldAll"
+    },
+    {
+      "type": "assert",
+      "what": "text",
+      "equals": "#config-version=FV-TEST\nconfig system global\n  set hostname \"lab-1\"\n  set status enable\n  set admin disable\n  set port 443\n  set ip 192.0.2.10/24\n  set password ENC c2VjcmV0\n  set action alert_deny\n  set severity High\n  set made-up-option value\nend\nconfig waf policy\n  edit \"policy1\"\n    set certificate \"-----BEGIN CERTIFICATE-----\nMIIBsynthetic\n-----END CERTIFICATE-----\"\n  next\nend\n"
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

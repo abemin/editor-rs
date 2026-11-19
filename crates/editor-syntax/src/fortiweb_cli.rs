@@ -316,7 +316,7 @@ mod tests {
             .map_or(Role::Plain, |s| s.role)
     }
     fn first_role(line: &str) -> Role {
-        let word = line.trim_start().split_whitespace().next().unwrap();
+        let word = line.split_whitespace().next().unwrap();
         role_at(line, word)
     }
 

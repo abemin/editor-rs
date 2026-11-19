@@ -15,6 +15,7 @@ editor-formats.workspace = true
 editor-search.workspace = true
 editor-syntax.workspace = true
 ropey.workspace = true
+memchr.workspace = true
 encoding_rs.workspace = true
 serde.workspace = true
 serde_json.workspace = true

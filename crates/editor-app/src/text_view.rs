@@ -405,6 +405,9 @@ define_class!(
             let id = self.ivars().tab_id.borrow().clone();
             if let Some(tab) = tab_by_id(&id) {
                 let stats = draw_text(self, &tab, dirty);
+                if let Some(start) = crate::PROCESS_START.get() {
+                    crate::FIRST_DRAW_MS.get_or_init(|| start.elapsed().as_secs_f64() * 1000.0);
+                }
                 draw_gutter(self, &tab, dirty);
                 self.ivars().stats.set(stats);
                 if tab.first_paint_ms.get().is_none()

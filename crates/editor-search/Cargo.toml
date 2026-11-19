@@ -10,3 +10,10 @@ editor-core.workspace = true
 ropey.workspace = true
 regex.workspace = true
 fancy-regex.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "find"
+harness = false

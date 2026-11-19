@@ -177,6 +177,8 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
             let doc = tab.doc.borrow();
             json!(doc.doc.line_col(doc.doc.selections().primary().head).0)
         }
+        "launch_ms" => json!(crate::FIRST_DRAW_MS.get()),
+        "memory_mb" => json!(memory_mb()),
         "font_size" => json!(crate::app::with_app(|a| a.font_size)),
         "word_wrap" => json!(current(mtm)?.doc.borrow().word_wrap),
         "settings_open" => json!(crate::settings::is_open()),
@@ -315,6 +317,9 @@ fn current(mtm: MainThreadMarker) -> Result<std::rc::Rc<crate::app::Tab>, String
 }
 
 fn work_path(step: &Value) -> Result<std::path::PathBuf, String> {
+    if let Some(path) = step["path"].as_str() {
+        return Ok(std::path::PathBuf::from(path));
+    }
     let file = step["file"].as_str().ok_or("step needs file")?;
     Ok(args().work_dir.ok_or("no work folder")?.join(file))
 }
@@ -366,6 +371,20 @@ fn render(mtm: MainThreadMarker, name: &str) -> Result<(), String> {
     } else {
         Err(format!("could not write {}", path.display()))
     }
+}
+
+fn note(value: Value) {
+    RUNNER.with(|r| r.borrow_mut().as_mut().map(|r| r.notes.push(value)));
+}
+
+fn stats(times: &[f64]) -> Value {
+    let max = times.iter().copied().fold(0.0, f64::max);
+    let average = if times.is_empty() {
+        0.0
+    } else {
+        times.iter().sum::<f64>() / times.len() as f64
+    };
+    json!({ "max": max, "average": average })
 }
 
 fn modifiers(step: &Value) -> crate::input::Modifiers {
@@ -667,6 +686,71 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
                 .ok_or(format!("unknown button {title}"))?;
             crate::find_panel::press(mtm, &tab, button);
         }
+        "measure" => {
+            let what = step["what"].as_str().unwrap_or_default();
+            let value = query(mtm, what, step)?;
+            note(json!({ "name": step["name"].as_str().unwrap_or(what), "value": value }));
+        }
+        "keystrokes" => {
+            let tab = current(mtm)?;
+            let count = step["count"].as_u64().unwrap_or(50) as usize;
+            let mut times = Vec::with_capacity(count);
+            for _ in 0..count {
+                let start = std::time::Instant::now();
+                let text = NSString::from_str("x");
+                let _: () = unsafe {
+                    msg_send![&*tab.view, insertText: &*text, replacementRange: NSRange::new(usize::MAX >> 1, 0)]
+                };
+                tab.view.displayIfNeeded();
+                times.push(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            note(
+                json!({ "name": step["name"].as_str().unwrap_or("keystroke_ms"), "value": stats(&times) }),
+            );
+        }
+        "scroll_bench" => {
+            let tab = current(mtm)?;
+            let frames = step["frames"].as_u64().unwrap_or(120) as usize;
+            let lines_per_frame = step["lines"].as_u64().unwrap_or(40) as f64;
+            let m = crate::text_view::metrics();
+            let mut times = Vec::with_capacity(frames);
+            let mut origin = tab.view.visibleRect().origin;
+            for _ in 0..frames {
+                let start = std::time::Instant::now();
+                origin.y += lines_per_frame * m.line_height;
+                tab.view.scrollPoint(origin);
+                tab.view.displayIfNeeded();
+                times.push(start.elapsed().as_secs_f64() * 1000.0);
+            }
+            note(json!({ "name": "scroll_frame_ms", "value": stats(&times) }));
+        }
+        "find_bench" => {
+            let tab = current(mtm)?;
+            let options = editor_search::SearchOptions {
+                regex: step["regex"].as_bool().unwrap_or(false),
+                ..Default::default()
+            };
+            let query = editor_search::Query::compile(
+                step["pattern"].as_str().unwrap_or_default(),
+                &options,
+            )
+            .map_err(|e| e.message)?;
+            let start = std::time::Instant::now();
+            let text = {
+                let doc = tab.doc.borrow();
+                editor_search::SearchText::new(doc.doc.buffer().rope(), doc.doc.buffer().locked())
+            };
+            let found = editor_search::find_all(
+                &query,
+                &text,
+                None,
+                &std::sync::atomic::AtomicBool::new(false),
+            )
+            .map_err(|_| "cancelled")?;
+            note(
+                json!({ "name": "find_all_ms", "value": start.elapsed().as_secs_f64() * 1000.0, "matches": found.len() }),
+            );
+        }
         "answer" => crate::prompts::queue_answer(step["with"].as_str().unwrap_or_default()),
         "write_file" => std::fs::write(work_path(step)?, step["text"].as_str().unwrap_or_default())
             .map_err(|e| e.to_string())?,
@@ -716,4 +800,17 @@ fn run_step(mtm: MainThreadMarker, step: &Value) -> Result<f64, String> {
         other => return Err(format!("unknown step type {other}")),
     }
     Ok(STEP_DELAY)
+}
+
+/// Physical memory used by this process, as Activity Monitor reports it.
+fn memory_mb() -> f64 {
+    let mut info: libc::rusage_info_v4 = unsafe { std::mem::zeroed() };
+    let pointer = (&mut info as *mut libc::rusage_info_v4).cast::<libc::rusage_info_t>();
+    let status =
+        unsafe { libc::proc_pid_rusage(std::process::id() as i32, libc::RUSAGE_INFO_V4, pointer) };
+    if status == 0 {
+        info.ri_phys_footprint as f64 / 1_048_576.0
+    } else {
+        -1.0
+    }
 }

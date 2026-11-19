@@ -21,24 +21,16 @@ pub struct EditorDoc {
     pub name_hint: Option<String>,
 }
 
-/// Longest line in characters, measured quickly on bytes.
+/// Longest line in bytes, measured quickly. Used only to size the view.
 pub fn longest_line(text: &str) -> usize {
     let bytes = text.as_bytes();
     let mut longest = 0;
     let mut start = 0;
-    for end in memchr_newlines(bytes) {
+    for end in memchr::memchr2_iter(b'\n', b'\r', bytes) {
         longest = longest.max(end - start);
         start = end + 1;
     }
-    longest.max(bytes.len() - start.min(bytes.len()))
-}
-
-fn memchr_newlines(bytes: &[u8]) -> impl Iterator<Item = usize> + '_ {
-    bytes
-        .iter()
-        .enumerate()
-        .filter(|(_, b)| **b == b'\n' || **b == b'\r')
-        .map(|(i, _)| i)
+    longest.max(bytes.len().saturating_sub(start))
 }
 
 impl EditorDoc {

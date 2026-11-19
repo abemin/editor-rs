@@ -16,5 +16,10 @@ serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
+
+[[bench]]
+name = "open"
+harness = false

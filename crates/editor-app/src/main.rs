@@ -70,7 +70,13 @@ fn parse_args() -> Args {
     args
 }
 
+/// When the process started, for launch-time measurements.
+pub static PROCESS_START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+/// Milliseconds from process start to the first drawn text.
+pub static FIRST_DRAW_MS: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+
 fn main() {
+    PROCESS_START.get_or_init(std::time::Instant::now);
     let args = parse_args();
     let mtm = MainThreadMarker::new().expect("runs on the main thread");
     let app = NSApplication::sharedApplication(mtm);

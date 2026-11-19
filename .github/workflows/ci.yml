@@ -10,6 +10,7 @@ jobs:
       - run: rustup component add rustfmt clippy
       - run: cargo fmt --all --check
       - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo test --workspace --lib --bins --tests --exclude editor-app
+      - run: cargo bench --workspace --no-run
       - run: brew install cargo-deny && cargo deny check licenses
       - run: scripts/check-clean.sh

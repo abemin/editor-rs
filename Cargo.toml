@@ -26,6 +26,7 @@ regex = "1.13"
 fancy-regex = "0.20"
 proptest = "1"
 tempfile = "3"
+criterion = { version = "0.7", default-features = false }
 
 [profile.release]
 lto = "thin"

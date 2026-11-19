@@ -670,7 +670,6 @@ Used by:
 - objc2-foundation 0.3.2
 - objc2-metal 0.3.2
 - objc2-quartz-core 0.3.2
-- objc2-uniform-type-identifiers 0.3.2
 - objc2 0.6.5
 - tree-sitter-html 0.23.2
 - tree-sitter-json 0.24.8

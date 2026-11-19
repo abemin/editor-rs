@@ -61,4 +61,4 @@ Fortinet, FortiGate, FortiWeb, FortiMail, FortiADC and FortiOS are trademarks of
 
 ## Licence
 
-Copyright © 2026 abemin. All rights reserved. Open-source components are listed in `THIRD_PARTY_NOTICES.md`.
+Editor RS is released under the [MIT License](LICENSE). Copyright © 2026 abemin. Open-source components it includes are listed in `THIRD_PARTY_NOTICES.md`.

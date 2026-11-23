@@ -1,0 +1,16 @@
+{
+  "steps": [
+    {
+      "type": "text",
+      "text": "cpu: 24\nsudo tos install --modules=ST,SC --primary-vip=192.0.2.171 --services-network=198.51.100.0/24 --load-more-options=a,b,c --and-more=1234567890 --x=yyyyyyyyyyyyyyyyyyyy"
+    },
+    { "type": "wait", "ms": 300 },
+    { "type": "scroll", "line": 1, "column": 160 },
+    { "type": "wait", "ms": 300 },
+    { "type": "assert", "what": "last_paint_covers_view", "equals": true },
+    { "type": "scroll", "line": 0, "column": 0 },
+    { "type": "wait", "ms": 300 },
+    { "type": "assert", "what": "last_paint_covers_view", "equals": true },
+    { "type": "quit" }
+  ]
+}

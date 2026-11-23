@@ -180,6 +180,7 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         }
         "launch_ms" => json!(crate::FIRST_DRAW_MS.get()),
         "memory_mb" => json!(memory_mb()),
+        "last_paint_covers_view" => json!(current(mtm)?.view.ivars().last_paint.get().covers_view),
         "font_size" => json!(crate::app::with_app(|a| a.font_size)),
         "word_wrap" => json!(current(mtm)?.doc.borrow().word_wrap),
         "settings_open" => json!(crate::settings::is_open()),

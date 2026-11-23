@@ -122,6 +122,16 @@ pub struct TextViewIvars {
     pub stats: Cell<DrawStats>,
     pub marked: RefCell<Option<String>>,
     pub drag: Cell<Option<crate::input::DragAnchor>>,
+    /// Horizontal scroll position the gutter was last painted at.
+    pub gutter_x: Cell<f64>,
+    /// What the most recent repaint covered, for UI tests.
+    pub last_paint: Cell<LastPaint>,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub struct LastPaint {
+    /// The repaint spanned the whole visible width.
+    pub covers_view: bool,
 }
 
 define_class!(
@@ -403,10 +413,29 @@ define_class!(
             true
         }
 
+        /// The gutter is drawn at the visible left edge, but AppKit reuses
+        /// already drawn pixels when the view scrolls sideways and repaints
+        /// only the newly exposed strip. Repaint everything visible whenever
+        /// the horizontal position changed, so the old gutter never lingers.
+        #[unsafe(method(viewWillDraw))]
+        fn view_will_draw(&self) {
+            let visible = self.visibleRect();
+            if self.ivars().gutter_x.get() != visible.origin.x {
+                self.ivars().gutter_x.set(visible.origin.x);
+                self.setNeedsDisplayInRect(visible);
+            }
+            unsafe { msg_send![super(self), viewWillDraw] }
+        }
+
         #[unsafe(method(drawRect:))]
         fn draw_rect(&self, dirty: NSRect) {
             let id = self.ivars().tab_id.borrow().clone();
             if let Some(tab) = tab_by_id(&id) {
+                let visible = self.visibleRect();
+                self.ivars().last_paint.set(LastPaint {
+                    covers_view: dirty.origin.x <= visible.origin.x
+                        && dirty.origin.x + dirty.size.width >= visible.origin.x + visible.size.width,
+                });
                 let stats = draw_text(self, &tab, dirty);
                 if let Some(start) = crate::PROCESS_START.get() {
                     crate::FIRST_DRAW_MS.get_or_init(|| start.elapsed().as_secs_f64() * 1000.0);
@@ -444,6 +473,8 @@ impl TextView {
             stats: Cell::new(DrawStats::default()),
             marked: RefCell::new(None),
             drag: Cell::new(None),
+            gutter_x: Cell::new(f64::NAN),
+            last_paint: Cell::new(LastPaint::default()),
         });
         let view: Retained<Self> = unsafe {
             msg_send![super(this), initWithFrame: NSRect::new(NSPoint::new(0.0, 0.0), NSSize::new(800.0, 600.0))]

@@ -229,4 +229,5 @@ scripts!(
     reopen_utf16_refused,
     unreliable_autosave_prompts,
     restore_damaged_snapshot,
+    gutter_after_horizontal_scroll,
 );

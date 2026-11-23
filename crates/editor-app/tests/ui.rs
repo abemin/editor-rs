@@ -232,4 +232,5 @@ scripts!(
     gutter_after_horizontal_scroll,
     paste_long_line_scrolls_to_end,
     restored_long_line_scrolls_to_end,
+    return_at_end_of_long_line_shows_caret,
 );

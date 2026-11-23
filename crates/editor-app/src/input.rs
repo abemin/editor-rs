@@ -125,17 +125,30 @@ pub fn after_change(tab: &Rc<Tab>, text_changed: bool) {
 }
 
 fn scroll_to_caret(tab: &Rc<Tab>, line: usize, column: usize) {
-    let rect = crate::text_view::rect_for(tab, line, column);
+    const MARGIN: f64 = 40.0;
+    let m = crate::text_view::metrics();
+    let lines = tab.doc.borrow().doc.buffer().rope().len_lines();
+    // The gutter covers the left of the visible area, so text is only
+    // readable to its right.
+    let gutter = crate::text_view::gutter_width(lines, &m);
+    let caret = crate::text_view::rect_for(tab, line, column);
     let visible = tab.view.visibleRect();
-    let inside = rect.origin.y >= visible.origin.y
-        && rect.origin.y + rect.size.height <= visible.origin.y + visible.size.height
-        && rect.origin.x >= visible.origin.x
-        && rect.origin.x <= visible.origin.x + visible.size.width;
-    if !inside {
-        let mut padded = rect;
-        padded.origin.x = (padded.origin.x - 40.0).max(0.0);
-        padded.size.width += 80.0;
-        tab.view.scrollRectToVisible(padded);
+    let frame = tab.view.frame().size;
+    let mut origin = visible.origin;
+    if caret.origin.x < visible.origin.x + gutter {
+        origin.x = caret.origin.x - gutter - MARGIN;
+    } else if caret.origin.x + caret.size.width > visible.origin.x + visible.size.width {
+        origin.x = caret.origin.x + caret.size.width + MARGIN - visible.size.width;
+    }
+    if caret.origin.y < visible.origin.y {
+        origin.y = caret.origin.y;
+    } else if caret.origin.y + caret.size.height > visible.origin.y + visible.size.height {
+        origin.y = caret.origin.y + caret.size.height - visible.size.height;
+    }
+    origin.x = origin.x.min(frame.width - visible.size.width).max(0.0);
+    origin.y = origin.y.min(frame.height - visible.size.height).max(0.0);
+    if origin != visible.origin {
+        tab.view.scrollPoint(origin);
     }
 }
 

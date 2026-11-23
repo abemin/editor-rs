@@ -1,0 +1,14 @@
+{
+  "steps": [
+    {
+      "type": "text",
+      "text": "sudo tos install --modules=ST,SC --primary-vip=192.0.2.171 --services-network=198.51.100.0/24 --load-more-options=a,b,c --and-more=1234567890"
+    },
+    { "type": "assert", "what": "caret_visible", "equals": true },
+    { "type": "assert", "what": "visible_x", "greater_than": 100 },
+    { "type": "key", "key": "return" },
+    { "type": "assert", "what": "caret_visible", "equals": true },
+    { "type": "assert", "what": "visible_x", "equals": 0.0 },
+    { "type": "quit" }
+  ]
+}

@@ -32,6 +32,23 @@ pub fn longest_line(text: &str) -> usize {
     longest.max(bytes.len().saturating_sub(start))
 }
 
+/// Length of the longest line in a rope, in bytes (at least its width in columns).
+pub fn longest_rope_line(rope: &ropey::Rope) -> usize {
+    let mut longest = 0;
+    let mut current = 0;
+    for chunk in rope.chunks() {
+        let bytes = chunk.as_bytes();
+        let mut start = 0;
+        for end in memchr::memchr2_iter(b'\n', b'\r', bytes) {
+            longest = longest.max(current + end - start);
+            current = 0;
+            start = end + 1;
+        }
+        current += bytes.len() - start;
+    }
+    longest.max(current)
+}
+
 impl EditorDoc {
     pub fn untitled() -> Self {
         Self {

@@ -230,4 +230,6 @@ scripts!(
     unreliable_autosave_prompts,
     restore_damaged_snapshot,
     gutter_after_horizontal_scroll,
+    paste_long_line_scrolls_to_end,
+    restored_long_line_scrolls_to_end,
 );

@@ -74,7 +74,22 @@ fn on_locked_line(doc: &Document) -> bool {
 pub fn after_change(tab: &Rc<Tab>, text_changed: bool) {
     let (line, column, dirty) = {
         let mut doc = tab.doc.borrow_mut();
-        if text_changed {
+        // Plain typing only changes the lines the cursors are on. Anything
+        // else (pastes with line breaks, undo, Replace All, line commands)
+        // can lengthen any line, so measure the whole document.
+        let simple_typing = {
+            let edits: Vec<_> = doc
+                .doc
+                .pending_changes()
+                .iter()
+                .flat_map(|b| &b.0)
+                .collect();
+            edits.len() <= doc.doc.selections().ranges().len()
+                && edits.iter().all(|e| !e.text.contains(['\n', '\r']))
+        };
+        if text_changed && !simple_typing {
+            doc.max_columns = crate::doc_model::longest_rope_line(doc.doc.buffer().rope());
+        } else if text_changed {
             let carets: Vec<usize> = doc
                 .doc
                 .selections()

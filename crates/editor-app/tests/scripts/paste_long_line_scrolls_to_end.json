@@ -1,0 +1,24 @@
+{
+  "steps": [
+    {
+      "type": "text",
+      "text": "cpu: 24\n"
+    },
+    {
+      "type": "set_clipboard",
+      "text": "sudo tos install --modules=ST,SC --primary-vip=192.0.2.171 --services-network=198.51.100.0/24 --load-more-options=a,b,c --and-more=1234567890 --and-even-more=abcdefghijklmnopqrstuvwxyz0123456789\n"
+    },
+    {
+      "type": "send",
+      "selector": "paste:"
+    },
+    {
+      "type": "assert",
+      "what": "fits_longest_line",
+      "equals": true
+    },
+    {
+      "type": "quit"
+    }
+  ]
+}

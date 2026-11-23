@@ -180,6 +180,18 @@ fn query(mtm: MainThreadMarker, what: &str, step: &Value) -> Result<Value, Strin
         }
         "launch_ms" => json!(crate::FIRST_DRAW_MS.get()),
         "memory_mb" => json!(memory_mb()),
+        "fits_longest_line" => {
+            let tab = current(mtm)?;
+            let (lines, longest) = {
+                let doc = tab.doc.borrow();
+                let text = doc.doc.text();
+                let longest = text.lines().map(|l| l.chars().count()).max().unwrap_or(0);
+                (doc.doc.buffer().rope().len_lines(), longest)
+            };
+            let m = crate::text_view::metrics();
+            let needed = crate::text_view::text_left(lines, &m) + longest as f64 * m.advance;
+            json!(tab.view.frame().size.width >= needed)
+        }
         "last_paint_covers_view" => json!(current(mtm)?.view.ivars().last_paint.get().covers_view),
         "font_size" => json!(crate::app::with_app(|a| a.font_size)),
         "word_wrap" => json!(current(mtm)?.doc.borrow().word_wrap),

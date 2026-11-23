@@ -227,6 +227,7 @@ fn restore_tab(mtm: MainThreadMarker, entry: RestoredTab) -> Option<Rc<Tab>> {
         .set_selections(SelectionSet::single(record.caret.min(len)));
     doc.doc.set_bookmarked_lines(&record.bookmarks);
     doc.doc.take_change_log();
+    doc.max_columns = crate::doc_model::longest_rope_line(doc.doc.buffer().rope());
     let tab = crate::window::open_tab_with_id(mtm, doc, Some(record.id.clone()));
     tab.journaled.set(false);
     tab.cloned
